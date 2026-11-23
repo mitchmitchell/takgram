@@ -90,3 +90,30 @@ Keep every Telegram call behind one interface so `:core` logic is tested against
   built on the user API. Read the terms before publishing a build.
 - TDLib's licence and Android packaging.
 - Android background limits for the foreground service with location.
+
+## Who can exchange what
+
+The chat is always the meeting point. A linked chat can be a private one-to-one chat or a group; the user
+chooses which chats TAKgram reads and every other chat is ignored.
+
+| Member has | Sees | Can contribute |
+| --- | --- | --- |
+| ATAK with TAKgram | Everything, on the map | Position, markers, chat, alerts |
+| Telegram only | Cards, live locations, chat | Live location, pins, text |
+| ATAK only | Not supported by TAKgram | Not supported by TAKgram |
+
+Decisions:
+
+- **One-to-one and groups are both supported.** In ATAK a Telegram-only person appears as a contact
+  (for example "TG-Ann") and can be messaged directly.
+- **Each phone posts only what its own user created**, so a group never gets duplicates.
+- **Identity card.** Each TAKgram user posts one small message linking their Telegram account to their TAK
+  uid, callsign and team color. Teammates' apps use it so a person seen over Wi-Fi and over Telegram is one
+  icon, not two.
+- **Naming a marker from Telegram:** drop a pin, then reply to the pin with the name. (To be tried.)
+- **ATAK without TAKgram is out of scope.** Those users rely on ordinary TAK networking. A gateway mode, where
+  one TAKgram phone relays for nearby ATAK-only teammates, is deferred and will be explored separately; a TAK
+  Server plugin is the alternative to consider then.
+- **Bots are optional members, not infrastructure.** A team may add its own bot as an automated source
+  (weather, sensors, AI agents), as a helper answering commands for Telegram-only members, or to attach
+  buttons to cards. A bot's posts reach TAK maps only if the team has listed that bot as trusted.
