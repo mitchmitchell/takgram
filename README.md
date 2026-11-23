@@ -8,6 +8,11 @@ A bridge between TAK (ATAK, WinTAK, iTAK) and Telegram.
 - Works **without a TAK Server**: it joins the standard TAK mesh multicast groups and also offers a small built-in
   endpoint that TAK clients add like a server.
 
+**Direction (November 2026):** the main product is now an Android app that runs on the TAK user's own phone and
+signs in with the user's own Telegram account, with no bridge computer and no bot required. See
+[docs/android-plan.md](docs/android-plan.md). The Python package described below remains as the desktop variant and
+test harness.
+
 **Status: 0.1, first release in progress.** The unit tests pass, but this version has not yet been run against a real
 ATAK device or a live Telegram chat. See [What is not verified yet](#what-is-not-verified-yet).
 
