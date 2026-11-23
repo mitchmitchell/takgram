@@ -66,6 +66,8 @@ class Bridge:
         except Exception as e:
             log.warning("relay failed: %s", e)
 
+        if not self.cfg.display_chat:
+            return True  # setup mode: relay between TAK clients, publish nothing
         if any(ev.type.startswith(p) for p in self.cfg.export_types) or ev.kind == "delete":
             await self._dispatch(ev, source)
         return True
@@ -380,6 +382,9 @@ class Bridge:
         await self.bot.start()
         me = await self.bot.call("getMe")
         log.info("Telegram bot @%s ready", me.get("username"))
+        if not self.cfg.display_chat:
+            log.warning("setup mode: telegram.display_chat is not set, so nothing is published. "
+                        "Send /id in a chat to learn its id.")
         if self.cfg.mesh_enabled:
             self.mesh = Mesh(self.on_cot, self.cfg.mesh_iface_ip, self.cfg.mesh_direct_port)
             await self.mesh.start()

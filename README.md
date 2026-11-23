@@ -49,8 +49,9 @@ allowlisted user is sent into TAK chat.
    export TAKGRAM_TOKEN=123456:ABC...
    ```
 
-4. Start the bridge once, send `/id` in each chat, and put the ids into `takgram.toml`. Add your own user id to
-   `allow_users`.
+4. Start the bridge once with `display_chat` left out (setup mode: nothing is published), send `/id` in each chat,
+   and put the ids into `takgram.toml`. Add your own user id to `allow_users`. The token can also live in a file
+   outside the repo: set `telegram.token_file` and make the file readable only by you.
 5. Run it:
 
    ```sh

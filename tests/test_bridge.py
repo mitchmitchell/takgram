@@ -173,3 +173,12 @@ async def test_endpoint_relays_between_real_tcp_clients_and_answers_commands(cfg
         wb.close()
     finally:
         await ep.stop()
+
+
+async def test_setup_mode_answers_id_and_publishes_nothing(cfg, bot):
+    cfg.display_chat = 0
+    b = Bridge(cfg, bot)
+    assert await b.on_cot(cot.parse(marker()), "mesh") is True
+    await b.on_update({"channel_post": {"chat": {"id": -100123}, "text": "/id"}})
+    await settle(b)
+    assert bot.methods() == ["sendMessage"] and "-100123" in bot.calls[0][1]["text"]

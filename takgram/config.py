@@ -70,8 +70,6 @@ def validate(c: Config) -> list[str]:
     errs = []
     if not c.token:
         errs.append("no bot token: set TAKGRAM_TOKEN or telegram.token_file")
-    if not c.display_chat:
-        errs.append("telegram.display_chat is required")
     if not (c.mesh_enabled or c.endpoint_enabled):
         errs.append("enable at least one of tak.mesh or tak.endpoint")
     return errs
