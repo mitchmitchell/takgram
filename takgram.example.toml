@@ -16,7 +16,7 @@ enabled = true                  # standard TAK multicast on the local network
 [tak.endpoint]
 enabled = true                  # built-in endpoint that TAK clients add as a server
 listen_host = "0.0.0.0"
-listen_port = 8087
+listen_port = 8099
 
 [bridge]
 callsign = "TAKgram"            # contact name TAK users message with: share on | share off | status

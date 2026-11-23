@@ -3,7 +3,11 @@
 It speaks plain streaming XML CoT, relays events between connected clients
 and hands every event to the bridge. Events carrying <marti><dest> are routed
 only to the named callsigns. It is not a TAK Server: no TLS, no missions, no
-enrollment.
+enrollment. It answers the clients' t-x-c-t pings.
+
+The default port is 8099, not 8087: ATAK itself listens on TCP and UDP 8087 by default (its
+streaming input), so a server on 8087 collides with ATAK on the same device and is easily
+confused with a TAK Server or FreeTAKServer, whose plain-text CoT port is also 8087.
 """
 
 from __future__ import annotations
@@ -12,7 +16,7 @@ import asyncio
 import logging
 from typing import Awaitable, Callable
 
-from ..cot import CotError, CotEvent, StreamSplitter, parse
+from ..cot import PING, CotError, CotEvent, StreamSplitter, build_pong, parse
 
 log = logging.getLogger("takgram.endpoint")
 Handler = Callable[[CotEvent, str, "Client | None"], Awaitable[bool]]
@@ -72,6 +76,9 @@ class Endpoint:
                         ev = parse(raw)
                     except CotError as e:
                         log.debug("dropped event from %s: %s", client.peer, e)
+                        continue
+                    if ev.type == PING:
+                        client.send(build_pong())  # keepalive only: never relayed or bridged
                         continue
                     if ev.kind == "unit" and ev.callsign:
                         client.uid, client.callsign = ev.uid, ev.callsign

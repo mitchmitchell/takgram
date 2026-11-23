@@ -16,6 +16,10 @@ from defusedxml import ElementTree as SafeET
 
 MAX_EVENT_BYTES = 256 * 1024
 ALL_CHAT = "All Chat Rooms"
+# TAK clients send PING over a streaming connection and expect PONG back; without a reply
+# ATAK eventually treats the server as dead and reconnects.
+PING = "t-x-c-t"
+PONG = "t-x-c-t-r"
 
 
 class CotError(ValueError):
@@ -97,6 +101,8 @@ class CotEvent:
     @property
     def kind(self) -> str:
         t = self.type
+        if t == PING:
+            return "ping"
         if t == "b-t-f":
             return "chat"
         if t.startswith("t-x-d-d"):
@@ -280,6 +286,11 @@ def build_chat(sender_uid: str, sender_callsign: str, text: str,
         detail += f"<marti><dest callsign={quoteattr(to_callsign)}/></marti>"
     uid = f"GeoChat.{sender_uid}.{to_uid}.{msg_id}"
     return _event(uid, "b-t-f", "h-g-i-g-o", 0.0, 0.0, None, 86400, detail)
+
+
+def build_pong() -> bytes:
+    """Reply to a TAK client's t-x-c-t ping."""
+    return _event("takPong", PONG, "h-g-i-g-o", 0.0, 0.0, None, 20, "")
 
 
 def canonical(xml: bytes) -> bytes:

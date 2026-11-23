@@ -68,7 +68,7 @@ allowlisted user is sent into TAK chat.
    - **Any network that can reach the bridge host:** make a connection package and import it on each device.
 
      ```sh
-     takgram datapackage --host 192.168.1.10 --port 8087
+     takgram datapackage --host 192.168.1.10 --port 8099
      ```
 
 To preview a card without Telegram: `takgram card some-event.cot -o card.png`.
