@@ -10,7 +10,7 @@ from collections import OrderedDict
 
 from . import cot
 from .config import Config
-from .cot import ALL_CHAT, CotEvent
+from .cot import CotEvent
 from .datapackage import object_package
 from .icons import IconResolver
 from .ratequeue import OutboundQueue
