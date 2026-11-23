@@ -1,0 +1,11 @@
+__pycache__/
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+takgram.toml
+*.token
+*.db
+tiles/
+*.zip
+card.png

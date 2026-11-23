@@ -1,0 +1,32 @@
+# TAKgram configuration. Copy to takgram.toml and edit.
+# The bot token comes from the TAKGRAM_TOKEN environment variable or token_file, never from this file.
+
+[telegram]
+token_file   = "/etc/takgram/bot.token"
+display_chat = -1001234567890   # channel where cards are posted; the bot must be an administrator
+ops_chat     = -1009876543210   # group for chat and commands; send /id in a chat to learn its id
+# ops_chat_topic = 12           # optional forum topic for TAK chat
+allow_users  = [111111111]      # Telegram user ids whose messages in ops_chat are sent into TAK
+
+[tak.mesh]
+enabled = true                  # standard TAK multicast on the local network
+# iface_ip = "192.168.1.10"     # set when the host has several interfaces
+# direct_port = 4242            # TCP port for direct chat from mesh peers
+
+[tak.endpoint]
+enabled = true                  # built-in endpoint that TAK clients add as a server
+listen_host = "0.0.0.0"
+listen_port = 8087
+
+[bridge]
+callsign = "TAKgram"            # contact name TAK users message with: share on | share off | status
+db_path = "takgram.db"
+tile_cache = "tiles"
+# tile_url = ""                 # empty disables map tiles; cards then show the icon on a plain grid
+# icons_dir = "icons"           # ATAK iconset folders and optional 2525/<cot-type>.png sprites
+zoom = 14
+
+[export]
+pli_interval_s = 30             # minimum seconds between position updates per TAK user
+chat_interval_s = 3.1           # minimum seconds between messages to one chat (Telegram: 20 per minute in groups)
+types = ["a-*", "b-m-p*", "u-d-*", "b-m-r", "b-t-f", "b-a-*", "b-r-f-h-c"]
