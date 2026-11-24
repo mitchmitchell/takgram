@@ -7,17 +7,20 @@ import android.telephony.TelephonyManager
 import android.util.Log
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
+import org.takgram.core.TgContent
+import org.takgram.core.TgMessage
+import org.takgram.core.TgSender
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
- * The app's single TDLib client.
+ * The app's single TDLib client, and the only place that talks to Telegram.
  *
- * A0 spike version: sign-in, chat list, one linked chat, text and live-location messages.
- * Every update from chats other than the linked chat is ignored. Message content is logged
- * as data only and is never interpreted as a command.
+ * Messages from the linked chat are converted to plain [TgMessage] values and handed to
+ * [onLinkedMessage]. Messages from every other chat are ignored completely. Nothing read from
+ * Telegram is ever treated as an instruction.
  */
 class Tg(private val ctx: Context) {
 
@@ -30,27 +33,40 @@ class Tg(private val ctx: Context) {
         val confirmed: Boolean get() = messageId % (1L shl 20) == 0L
     }
 
+    data class ChatInfo(val id: Long, val title: String, val kind: String, val usable: Boolean)
+
+    private class UserInfo(val name: String, val isBot: Boolean)
+
     private val prefs = ctx.getSharedPreferences("takgram", Context.MODE_PRIVATE)
     private val listeners = CopyOnWriteArrayList<Listener>()
-    private val chats = ConcurrentHashMap<Long, String>()
+    private val chats = ConcurrentHashMap<Long, TdApi.Chat>()
+    private val users = ConcurrentHashMap<Long, UserInfo>()
+    private val pendingSends = ConcurrentHashMap<Long, (Long?, String?) -> Unit>()
     private val log = ArrayDeque<String>()
 
     val testDc: Boolean = BuildConfig.TG_TEST_DC
 
+    /** Receives every new or edited message of the linked chat. Set once, by the application. */
+    @Volatile var onLinkedMessage: (TgMessage) -> Unit = {}
+
     @Volatile var authState: TdApi.AuthorizationState? = null
+        private set
+    @Volatile var selfUserId: Long = 0
+        private set
+    @Volatile var selfName: String = ""
         private set
     @Volatile var phone: String = ""
     @Volatile var live: LiveRef? = loadLive()
         private set
 
+    val signedIn: Boolean get() = authState is TdApi.AuthorizationStateReady
+
     var linkedChatId: Long
         get() = prefs.getLong(key("linked_chat"), 0L)
         set(v) {
             prefs.edit().putLong(key("linked_chat"), v).apply()
-            if (v != 0L) {
-                client.send(TdApi.OpenChat(v)) {}
-            }
-            note("linked chat: ${chatTitle(v)} ($v)")
+            if (v != 0L) client.send(TdApi.OpenChat(v)) {}
+            note("linked chat: ${chatTitle(v)}")
         }
 
     private val client: Client
@@ -63,7 +79,7 @@ class Tg(private val ctx: Context) {
     }
 
     // Keys are per data center so test-server state never mixes with production state.
-    private fun key(name: String) = if (testDc) "test.$name" else "prod.$name"
+    fun key(name: String) = if (testDc) "test.$name" else "prod.$name"
 
     fun addListener(l: Listener) = listeners.add(l)
     fun removeListener(l: Listener) = listeners.remove(l)
@@ -80,9 +96,22 @@ class Tg(private val ctx: Context) {
         changed()
     }
 
-    fun chatList(): List<Pair<Long, String>> = chats.entries.map { it.key to it.value }.sortedBy { it.second }
+    /** Chats the user may link. Bots and channels are listed but marked unusable. */
+    fun chatList(): List<ChatInfo> = chats.values.map { c ->
+        when (val t = c.type) {
+            is TdApi.ChatTypePrivate -> when {
+                t.userId == selfUserId -> ChatInfo(c.id, c.title, "Saved Messages: not supported", false)
+                users[t.userId]?.isBot == true -> ChatInfo(c.id, c.title, "bot: not supported", false)
+                else -> ChatInfo(c.id, c.title, "person", true)
+            }
+            is TdApi.ChatTypeBasicGroup -> ChatInfo(c.id, c.title, "group", true)
+            is TdApi.ChatTypeSupergroup ->
+                if (t.isChannel) ChatInfo(c.id, c.title, "channel: not supported", false) else ChatInfo(c.id, c.title, "group", true)
+            else -> ChatInfo(c.id, c.title, "not supported", false)
+        }
+    }.sortedWith(compareBy({ !it.usable }, { it.title.lowercase(Locale.ROOT) }))
 
-    fun chatTitle(id: Long): String = chats[id] ?: "?"
+    fun chatTitle(id: Long): String = chats[id]?.title ?: if (id == 0L) "none" else "chat $id"
 
     // ---- sign-in -------------------------------------------------------------------------------
 
@@ -107,11 +136,14 @@ class Tg(private val ctx: Context) {
     fun submitCode(code: String) =
         client.send(TdApi.CheckAuthenticationCode(code.trim())) { r -> report("code", r) }
 
-    /** Asks Telegram to send the code again by its next delivery method (for example SMS). */
-    fun resendCode() = client.send(TdApi.ResendAuthenticationCode(null)) { r -> report("resend", r) }
-
     /** Starts sign-in by QR code: another logged-in Telegram app scans the link as a QR code. */
-    fun requestQr() = client.send(TdApi.RequestQrCodeAuthentication(LongArray(0))) { r -> report("qr", r) }
+    fun requestQr() {
+        if (signedIn) {
+            note("already signed in")
+            return
+        }
+        client.send(TdApi.RequestQrCodeAuthentication(LongArray(0))) { r -> report("qr", r) }
+    }
 
     /** Current QR sign-in link, or null. It changes about every 30 seconds. */
     @Volatile var qrLink: String? = null
@@ -120,7 +152,7 @@ class Tg(private val ctx: Context) {
     fun submitPassword(pw: String) =
         client.send(TdApi.CheckAuthenticationPassword(pw)) { r -> report("password", r) }
 
-    fun logOut() = client.send(TdApi.LogOut()) { r -> report("logout", r) }
+    fun logOut() = client.send(TdApi.LogOut()) { r -> report("sign out", r) }
 
     fun loadChats() {
         client.send(TdApi.LoadChats(TdApi.ChatListMain(), 100)) { r ->
@@ -129,22 +161,32 @@ class Tg(private val ctx: Context) {
         }
     }
 
-    /** A0 helper for test servers: makes an empty supergroup owned by this account and links it. */
-    fun createTestGroup(title: String) {
-        val fn = TdApi.CreateNewSupergroupChat(title, false, false, "TAKgram test group", null, 0, false)
-        client.send(fn) { r ->
-            if (r is TdApi.Chat) {
-                chats[r.id] = r.title
-                linkedChatId = r.id
-            } else report("createGroup", r)
+    // ---- sending ---------------------------------------------------------------------------------
+
+    /**
+     * Sends a text message. [done] gets the server's message id once Telegram has confirmed it, or
+     * null and the reason if the send failed.
+     */
+    fun sendText(chatId: Long, text: String, done: (Long?, String?) -> Unit = { _, _ -> }) {
+        val content = TdApi.InputMessageText(TdApi.FormattedText(text, emptyArray()), null, false)
+        send(chatId, content, done)
+    }
+
+    fun editText(chatId: Long, messageId: Long, text: String, done: (String?) -> Unit) {
+        val content = TdApi.InputMessageText(TdApi.FormattedText(text, emptyArray()), null, false)
+        client.send(TdApi.EditMessageText(chatId, messageId, null, content)) { r ->
+            done((r as? TdApi.Error)?.let { "${it.code} ${it.message}" })
         }
     }
 
-    // ---- sending ---------------------------------------------------------------------------------
-
-    fun sendText(chatId: Long, text: String) {
-        val content = TdApi.InputMessageText(TdApi.FormattedText(text, emptyArray()), null, false)
-        client.send(TdApi.SendMessage(chatId, null, null, null, null, content)) { r -> report("sendText", r) }
+    private fun send(chatId: Long, content: TdApi.InputMessageContent, done: (Long?, String?) -> Unit) {
+        client.send(TdApi.SendMessage(chatId, null, null, null, null, content)) { r ->
+            if (r is TdApi.Message) {
+                pendingSends[r.id] = done
+            } else {
+                done(null, (r as? TdApi.Error)?.let { "${it.code} ${it.message}" } ?: "unknown error")
+            }
+        }
     }
 
     /** Why the last live-location send failed, or null. Cleared when a new send starts. */
@@ -154,34 +196,29 @@ class Tg(private val ctx: Context) {
     /** Forgets the current live-location message without touching Telegram (e.g. it can no longer be edited). */
     fun forgetLive() = setLive(null)
 
-    fun startLive(chatId: Long, fix: Fix, done: (Boolean) -> Unit) {
+    fun startLive(chatId: Long, fix: Fix) {
         liveError = null
-        val content = TdApi.InputMessageLiveLocation(fix.toLive())
-        client.send(TdApi.SendMessage(chatId, null, null, null, null, content)) { r ->
-            if (r is TdApi.Message) {
-                setLive(LiveRef(chatId, r.id))
-                note("live location started (temporary id ${r.id})")
-                done(true)
+        setLive(LiveRef(chatId, PENDING_ID))
+        send(chatId, TdApi.InputMessageLiveLocation(fix.toLive())) { id, error ->
+            if (id != null) {
+                setLive(LiveRef(chatId, id))
+                note("sharing position in ${chatTitle(chatId)}")
             } else {
-                report("startLive", r)
-                liveError = (r as? TdApi.Error)?.let { "${it.code} ${it.message}" } ?: "unknown error"
-                done(false)
+                liveError = error
+                setLive(null)
             }
         }
     }
 
     fun editLive(fix: Fix, done: (TdApi.Object) -> Unit) {
         val ref = live ?: return
-        client.send(TdApi.EditMessageLiveLocation(ref.chatId, ref.messageId, null, fix.toLive())) { r ->
-            if (r is TdApi.Error) report("editLive", r)
-            done(r)
-        }
+        client.send(TdApi.EditMessageLiveLocation(ref.chatId, ref.messageId, null, fix.toLive())) { r -> done(r) }
     }
 
     fun stopLive() {
         val ref = live ?: return
-        client.send(TdApi.EditMessageLiveLocation(ref.chatId, ref.messageId, null, null)) { r ->
-            report("stopLive", r)
+        if (ref.confirmed) {
+            client.send(TdApi.EditMessageLiveLocation(ref.chatId, ref.messageId, null, null)) { r -> report("stop sharing", r) }
         }
         setLive(null)
     }
@@ -192,6 +229,7 @@ class Tg(private val ctx: Context) {
             if (ref == null) remove(key("live_chat")).remove(key("live_msg"))
             else putLong(key("live_chat"), ref.chatId).putLong(key("live_msg"), ref.messageId)
         }.apply()
+        changed()
     }
 
     private fun loadLive(): LiveRef? {
@@ -210,49 +248,56 @@ class Tg(private val ctx: Context) {
     private fun onUpdate(o: TdApi.Object) {
         when (o) {
             is TdApi.UpdateAuthorizationState -> onAuth(o.authorizationState)
-            is TdApi.UpdateNewChat -> chats[o.chat.id] = o.chat.title
-            is TdApi.UpdateChatTitle -> chats[o.chatId] = o.title
-            is TdApi.UpdateNewMessage -> onMessage(o.message, "new")
-            is TdApi.UpdateMessageContent -> if (o.chatId == linkedChatId && o.chatId != 0L) {
-                note("edit ${o.messageId}: ${describe(o.newContent)}")
+            is TdApi.UpdateUser -> {
+                val u = o.user
+                val name = listOf(u.firstName, u.lastName).filter { it.isNotBlank() }.joinToString(" ")
+                users[u.id] = UserInfo(name, u.type is TdApi.UserTypeBot)
+            }
+            is TdApi.UpdateNewChat -> chats[o.chat.id] = o.chat
+            is TdApi.UpdateChatTitle -> chats[o.chatId]?.title = o.title
+            is TdApi.UpdateNewMessage -> if (isLinked(o.message.chatId)) deliver(o.message, edited = false)
+            is TdApi.UpdateMessageContent -> if (isLinked(o.chatId) && o.messageId != live?.messageId) {
+                // The update carries no sender, so fetch the whole message.
+                client.send(TdApi.GetMessage(o.chatId, o.messageId)) { r ->
+                    if (r is TdApi.Message) deliver(r, edited = true)
+                }
             }
             is TdApi.UpdateMessageSendFailed -> {
                 note("message send failed: ${o.error.code} ${o.error.message}")
-                val ref = live
-                if (ref != null && ref.chatId == o.message.chatId && ref.messageId == o.oldMessageId) {
-                    liveError = "${o.error.code} ${o.error.message}"
-                    setLive(null)
-                }
+                pendingSends.remove(o.oldMessageId)?.invoke(null, "${o.error.code} ${o.error.message}")
             }
-            is TdApi.UpdateMessageSendSucceeded -> {
-                val ref = live
-                if (ref != null && ref.chatId == o.message.chatId && ref.messageId == o.oldMessageId) {
-                    setLive(LiveRef(ref.chatId, o.message.id))
-                    note("live location confirmed by server, id ${o.message.id}")
-                }
-            }
+            is TdApi.UpdateMessageSendSucceeded -> pendingSends.remove(o.oldMessageId)?.invoke(o.message.id, null)
             else -> Unit
         }
     }
 
-    private fun onMessage(m: TdApi.Message, how: String) {
-        val linked = linkedChatId
-        if (linked == 0L || m.chatId != linked) return // every other chat is ignored completely
-        val from = when (val s = m.senderId) {
-            is TdApi.MessageSenderUser -> "user ${s.userId}"
-            is TdApi.MessageSenderChat -> "chat ${s.chatId}"
-            else -> "?"
-        }
-        note("$how ${m.id} from $from${if (m.isOutgoing) " (me)" else ""}: ${describe(m.content)}")
-    }
+    private fun isLinked(chatId: Long): Boolean = chatId != 0L && chatId == linkedChatId
 
-    private fun describe(c: TdApi.MessageContent): String = when (c) {
-        is TdApi.MessageText -> "text \"${c.text.text.take(200)}\""
-        is TdApi.MessageLocation -> "location ${c.location.latitude},${c.location.longitude}"
-        is TdApi.MessageLiveLocation ->
-            "live ${c.location.location.latitude},${c.location.location.longitude} " +
-                "period=${c.location.livePeriod} expiresIn=${c.expiresIn}"
-        else -> c.javaClass.simpleName
+    private fun deliver(m: TdApi.Message, edited: Boolean) {
+        val sender = when (val s = m.senderId) {
+            is TdApi.MessageSenderUser -> {
+                val u = users[s.userId]
+                TgSender(s.userId, u?.name.orEmpty(), u?.isBot ?: false, m.isOutgoing)
+            }
+            else -> TgSender(0, "", isBot = false, isSelf = false)
+        }
+        val content: TgContent = when (val c = m.content) {
+            is TdApi.MessageText -> TgContent.Text(c.text.text)
+            is TdApi.MessagePhoto -> TgContent.Text(c.caption.text)
+            is TdApi.MessageDocument -> TgContent.Text(c.caption.text)
+            is TdApi.MessageLiveLocation -> TgContent.LiveLocation(
+                c.location.location.latitude, c.location.location.longitude,
+                c.location.location.horizontalAccuracy, c.location.heading, c.expiresIn.toLong(),
+            )
+            is TdApi.MessageLocation -> TgContent.Pin(c.location.latitude, c.location.longitude)
+            else -> TgContent.Other
+        }
+        val reply = (m.replyTo as? TdApi.MessageReplyToMessage)?.takeIf { it.chatId == m.chatId }?.messageId ?: 0L
+        try {
+            onLinkedMessage(TgMessage(m.chatId, m.id, sender, content, reply, edited))
+        } catch (e: Exception) {
+            Log.e(TAG, "bridge failed on a message", e)
+        }
     }
 
     private fun onAuth(s: TdApi.AuthorizationState) {
@@ -260,66 +305,65 @@ class Tg(private val ctx: Context) {
         when (s) {
             is TdApi.AuthorizationStateWaitTdlibParameters -> {
                 val dir = File(ctx.filesDir, if (testDc) "tdlib-test" else "tdlib")
-                // A0: database not yet encrypted. A1 adds a Keystore-wrapped databaseEncryptionKey.
+                val fresh = !File(dir, "db").exists()
+                val dbKey = DbKey.load(prefs, key("dbkey"), createIfMissing = fresh)
+                if (dbKey.isEmpty() && !fresh) {
+                    Log.i(TAG, "database predates encryption; it stays unencrypted until the next sign-in")
+                }
                 val p = TdApi.SetTdlibParameters(
-                    testDc, File(dir, "db").absolutePath, File(dir, "files").absolutePath, ByteArray(0),
+                    testDc, File(dir, "db").absolutePath, File(dir, "files").absolutePath, dbKey,
                     false, true, true, false,
                     BuildConfig.TG_API_ID, BuildConfig.TG_API_HASH,
                     "en", Build.MODEL ?: "Android", "Android ${Build.VERSION.RELEASE}", BuildConfig.VERSION_NAME,
                 )
-                client.send(p) { r -> report("parameters", r) }
+                client.send(p) { r ->
+                    if (r is TdApi.Error) {
+                        note(
+                            "Could not open the Telegram database (${r.code} ${r.message}). " +
+                                "Clear TAKgram's data in Android settings and sign in again.",
+                        )
+                    }
+                }
             }
-            is TdApi.AuthorizationStateWaitCode -> {
-                note(
-                    "waiting for login code (${s.codeInfo.type.javaClass.simpleName}, ${codeLength(s.codeInfo.type)} digits); " +
-                        "next=${s.codeInfo.nextType?.javaClass?.simpleName ?: "none"} after ${s.codeInfo.timeout}s",
-                )
-                testCode(codeLength(s.codeInfo.type))?.let { submitCode(it) }
-            }
+            is TdApi.AuthorizationStateWaitCode ->
+                note("Telegram is waiting for a login code. If none arrives, use QR sign-in.")
             is TdApi.AuthorizationStateWaitOtherDeviceConfirmation -> {
                 qrLink = s.link
-                note("QR sign-in link updated")
                 // The link is a short-lived login token; only debug builds write it to the log.
                 if (BuildConfig.DEBUG) Log.i(QR_TAG, s.link)
             }
-            is TdApi.AuthorizationStateWaitRegistration -> {
-                if (testDc) {
-                    client.send(TdApi.RegisterUser("TAKgram", "Test", true)) { r -> report("register", r) }
-                } else note("this phone number has no Telegram account; sign up in Telegram first")
-            }
+            is TdApi.AuthorizationStateWaitPassword -> note("Enter your two-step verification password.")
+            is TdApi.AuthorizationStateWaitRegistration ->
+                note("This phone number has no Telegram account; sign up in Telegram first.")
             is TdApi.AuthorizationStateReady -> {
                 qrLink = null
-                note("SIGNED IN (${if (testDc) "test" else "production"} servers). Next: choose the linked chat.")
+                client.send(TdApi.GetMe()) { r ->
+                    if (r is TdApi.User) {
+                        selfUserId = r.id
+                        selfName = r.firstName
+                        changed()
+                    }
+                }
+                note("Signed in (${if (testDc) "test" else "production"} servers).")
                 loadChats()
                 linkedChatId.takeIf { it != 0L }?.let { client.send(TdApi.OpenChat(it)) {} }
             }
-            else -> note("auth: ${s.javaClass.simpleName.removePrefix("AuthorizationState")}")
+            is TdApi.AuthorizationStateLoggingOut, is TdApi.AuthorizationStateClosed -> {
+                qrLink = null
+                setLive(null)
+            }
+            else -> Unit
         }
         changed()
-    }
-
-    private fun codeLength(t: TdApi.AuthenticationCodeType): Int = when (t) {
-        is TdApi.AuthenticationCodeTypeSms -> t.length
-        is TdApi.AuthenticationCodeTypeTelegramMessage -> t.length
-        else -> 5
-    }
-
-    /**
-     * Telegram's test accounts 99966XYYYY always receive the DC digit X repeated as the code. The
-     * docs say five digits; the servers now ask for the length given in codeInfo, so use that.
-     */
-    private fun testCode(length: Int): String? {
-        if (!testDc) return null
-        val digits = phone.filter { it.isDigit() }
-        if (digits.length != 10 || !digits.startsWith("99966")) return null
-        val dc = digits[5]
-        return if (dc in '1'..'3') dc.toString().repeat(length.coerceIn(5, 8)) else null
     }
 
     companion object {
         const val TAG = "TAKgram"
         const val QR_TAG = "TAKgramQR"
         const val FOREVER = 0x7FFFFFFF
+
+        /** Placeholder id while a send is in flight; not a multiple of 2^20, so it reads as unconfirmed. */
+        private const val PENDING_ID = 1L
     }
 }
 
