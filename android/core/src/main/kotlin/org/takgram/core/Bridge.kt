@@ -158,10 +158,14 @@ class Bridge(
                     if (!m.sender.isSelf) log("identity: ${m.sender.displayName} is ${id.callsign} (${id.team})")
                     // Move an already visible position over to the new identity at once, so the
                     // person is one icon and not two.
-                    live[m.sender.userId]?.let {
-                        if (before.uid != id.uid) sink.send(CotBuild.delete(before.uid, now()))
-                        emit(it, now())
+                    // Also remove the stand-in "TG-" contact, which ATAK may still hold from before
+                    // the card was known (even from an earlier run of this app).
+                    if (!m.sender.isSelf) {
+                        val standIn = telegramOnly(m.sender).uid
+                        if (standIn != id.uid) sink.send(CotBuild.delete(standIn, now()))
+                        if (before.uid != id.uid && before.uid != standIn) sink.send(CotBuild.delete(before.uid, now()))
                     }
+                    live[m.sender.userId]?.let { emit(it, now()) }
                 }
             }
             return

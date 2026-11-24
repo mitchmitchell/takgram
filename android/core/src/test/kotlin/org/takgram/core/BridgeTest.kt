@@ -62,6 +62,16 @@ class BridgeTest {
     }
 
     @Test
+    fun aCardRemovesAStandInContactLeftFromAnEarlierRun() {
+        // Nothing is known about Ann in this run, but ATAK may still hold "TG-Ann" from the last one.
+        bridge.onMessage(msg(ann, TgContent.Text(IdentityCard.text(Identity("ANDROID-ann", "ALPHA-2", "Cyan")))))
+        assertEquals(1, sent.size)
+        assertTrue(sent[0].contains("type=\"t-x-d-d\"") && sent[0].contains("<link uid=\"TG-1001\""))
+        bridge.onMessage(msg(me, TgContent.Text(IdentityCard.text(Identity("ANDROID-me", "ME", "Cyan")))))
+        assertEquals("nothing is removed for our own card", 1, sent.size)
+    }
+
+    @Test
     fun aCardOnlyDescribesItsOwnSender() {
         bridge.onMessage(msg(bob, TgContent.Text(IdentityCard.text(Identity("ANDROID-ann", "ALPHA-2", "Cyan")))))
         bridge.onMessage(msg(ann, live()))
