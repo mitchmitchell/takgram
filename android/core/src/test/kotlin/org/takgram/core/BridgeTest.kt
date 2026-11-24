@@ -72,14 +72,6 @@ class BridgeTest {
     }
 
     @Test
-    fun aOneToOneChatGetsANeutralContactName() {
-        bridge.setChat(700, "")
-        assertEquals("TG-CHAT-700", parsed().uid)
-        assertEquals("TG-Takgram", parsed().callsign)
-        assertTrue(bridge.isTelegramCallsign("TG-Takgram"))
-    }
-
-    @Test
     fun aCardOnlyDescribesItsOwnSender() {
         bridge.onMessage(msg(bob, TgContent.Text(IdentityCard.text(Identity("ANDROID-ann", "ALPHA-2", "Cyan")))))
         bridge.onMessage(msg(ann, live()))

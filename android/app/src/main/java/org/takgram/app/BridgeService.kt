@@ -99,7 +99,7 @@ class BridgeService : Service(), LocationListener {
         prefs.edit().putBoolean(PREF_BRIDGE, true).apply()
         handler.postDelayed(ticker, TICK_MS)
         app.takServer.start()
-        app.bridge.setChat(tg.linkedChatId, tg.chatContactName(tg.linkedChatId))
+        app.bridge.setChat(tg.linkedChatId, tg.chatTitle(tg.linkedChatId))
         tg.note("bridge on: ${tg.chatTitle(tg.linkedChatId)} and ATAK")
         tg.loadIdentityCards(tg.linkedChatId)
         app.postIdentity()

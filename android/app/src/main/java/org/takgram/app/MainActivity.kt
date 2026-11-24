@@ -293,7 +293,7 @@ class MainActivity : Activity() {
                 } else {
                     tg.linkedChatId = c.id
                     if (app.bridgeOn) {
-                        app.bridge.setChat(c.id, tg.chatContactName(c.id))
+                        app.bridge.setChat(c.id, c.title)
                         tg.loadIdentityCards(c.id)
                         app.postIdentity()
                     }

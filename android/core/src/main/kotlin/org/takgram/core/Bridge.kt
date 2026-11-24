@@ -87,11 +87,8 @@ class Bridge(
      */
     @Synchronized
     fun setChat(chatId: Long, title: String) {
-        // A one-to-one chat has no name of its own (Telegram shows the other person's name), so
-        // callers pass an empty title for it and the contact gets a neutral name.
-        val name = CotParse.clean(title, 40)
-        val callsign = if (name.isEmpty()) CHAT_DEFAULT_CALLSIGN else "Telegram: $name"
-        val id = Identity("${TELEGRAM_UID_PREFIX}CHAT-$chatId", callsign, Teams.TELEGRAM_ONLY)
+        val name = CotParse.clean(title, 40).ifEmpty { "chat" }
+        val id = Identity("${TELEGRAM_UID_PREFIX}CHAT-$chatId", "Telegram: $name", Teams.TELEGRAM_ONLY)
         val old = chatContact
         if (old != null && old.uid != id.uid) sink.send(CotBuild.delete(old.uid, now()))
         chatContact = id
@@ -308,7 +305,6 @@ class Bridge(
         const val PIN_TYPE = "a-u-G"
         const val PIN_UID_PREFIX = "TGPIN-"
         const val TELEGRAM_UID_PREFIX = "TG-"
-        const val CHAT_DEFAULT_CALLSIGN = "TG-Takgram"
         const val CHAT_REMARKS = "via Telegram - position non-existent. Send to this contact to post in the linked chat."
         const val MAX_TEXT_CHARS = 16 * 1024
         private const val MAX_PINS = 200
