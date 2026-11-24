@@ -111,6 +111,7 @@ object CotBuild {
         courseDeg: Double?,
         staleSeconds: Long,
         now: Instant = Instant.now(),
+        remarks: String = "via Telegram",
     ): String {
         val teamName = if (Teams.valid(team)) team else Teams.TELEGRAM_ONLY
         val detail = buildString {
@@ -122,7 +123,7 @@ object CotBuild {
             if (courseDeg != null) {
                 append("<track").append(attr("course", num(courseDeg))).append(attr("speed", "0.0")).append("/>")
             }
-            append("<remarks>via Telegram</remarks>")
+            append("<remarks>").append(escape(remarks)).append("</remarks>")
         }
         val ce = accuracyM?.takeIf { it > 0 }
         return envelope(uid, "a-f-G-U-C", "m-g", now, now.plusSeconds(staleSeconds), lat, lon, null, ce, detail)

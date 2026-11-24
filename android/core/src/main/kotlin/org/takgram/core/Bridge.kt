@@ -106,7 +106,7 @@ class Bridge(
 
     private fun emitChat(id: Identity, t: Instant) {
         // A chat has no position. Like other TAK contacts without one, it sits at 0, 0.
-        sink.send(CotBuild.position(id.uid, id.callsign, id.team, 0.0, 0.0, null, null, POSITION_STALE_S, t))
+        sink.send(CotBuild.position(id.uid, id.callsign, id.team, 0.0, 0.0, null, null, POSITION_STALE_S, t, CHAT_REMARKS))
         chatEmit = t
     }
 
@@ -305,6 +305,7 @@ class Bridge(
         const val PIN_TYPE = "a-u-G"
         const val PIN_UID_PREFIX = "TGPIN-"
         const val TELEGRAM_UID_PREFIX = "TG-"
+        const val CHAT_REMARKS = "via Telegram - position non-existent. Send to this contact to post in the linked chat."
         const val MAX_TEXT_CHARS = 16 * 1024
         private const val MAX_PINS = 200
         private const val MAX_OBJECTS = 2000

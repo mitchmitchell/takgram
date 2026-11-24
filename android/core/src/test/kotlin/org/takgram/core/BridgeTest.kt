@@ -201,6 +201,7 @@ class BridgeTest {
         bridge.setChat(-500, "Ops <team>")
         assertEquals(1, sent.size)
         assertEquals("TG-CHAT--500", parsed().uid)
+        assertEquals("the remarks say the position is not real", Bridge.CHAT_REMARKS, parsed().remarks)
         assertEquals("Telegram: Ops <team>", parsed().callsign)
         assertTrue(sent[0].contains("endpoint=\"*:-1:stcp\""))
         assertTrue(bridge.isTelegramContact("TG-CHAT--500"))
