@@ -118,9 +118,11 @@ Expected: the teammate's icon is at the current position and not stale (grey).
 ## A2
 
 Status on 2026-11-23 (Galaxy Z Fold with ATAK-CIV 5.8, second account on an iPhone): **D12 pass, D13 pass,
-D14 pass, D16 pass**. A marker that had come from a Telegram pin was correctly not posted back. Not yet
-confirmed: D15 (sending to the "Telegram: ..." contact), D17 (emergency alert), D18 (needs a second Android
-phone).
+D14 pass, D15 pass, D16 pass**. A marker that had come from a Telegram pin was correctly not posted back.
+**D18 pass on a shared Wi-Fi network** (2026-11-24): a marker sent from ATAK on the Fold to the
+"Telegram: ..." contact appeared on the map in ATAK on a second Android device (a tablet running TAKgram on
+the second account). Not yet confirmed: D17 (emergency alert), and D18 with the two devices on different
+networks.
 
 Observed: because a card is edited in place, an update to an older marker happens far back in the chat and
 is easy to miss. To decide whether an update should also be announced.
