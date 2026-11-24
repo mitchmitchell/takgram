@@ -66,6 +66,30 @@ class TakServer(
         onClients(0)
     }
 
+    /**
+     * Sends an event to ATAK over its connection to this server.
+     *
+     * ATAK only lets the user send to a contact it learned this way; a contact that arrived on the
+     * UDP input is shown on the map but is "unknown" for sending (seen on ATAK-CIV 5.8).
+     * @return false if ATAK is not connected, so the caller can fall back to UDP.
+     */
+    fun send(xml: String): Boolean {
+        val bytes = xml.toByteArray(Charsets.UTF_8)
+        var delivered = false
+        for (c in clients) {
+            try {
+                synchronized(c) {
+                    c.getOutputStream().write(bytes)
+                    c.getOutputStream().flush()
+                }
+                delivered = true
+            } catch (e: Exception) {
+                runCatching { c.close() }
+            }
+        }
+        return delivered
+    }
+
     private fun serve(c: Socket) {
         val split = StreamSplitter()
         val buf = ByteArray(16 * 1024)
@@ -84,9 +108,14 @@ class TakServer(
                     }
                     if (ev.type == PING) {
                         // Keepalive only: answered here and never passed on.
-                        output.write(CotBuild.pong().toByteArray(Charsets.UTF_8))
-                        output.flush()
+                        synchronized(c) {
+                            output.write(CotBuild.pong().toByteArray(Charsets.UTF_8))
+                            output.flush()
+                        }
                     } else {
+                        if (BuildConfig.DEBUG) {
+                            Log.d(Tg.TAG, "from ATAK: ${ev.type} uid=${ev.uid} dests=${ev.destCallsigns} chatTo=${ev.chat?.toUid} chatFrom=${ev.chat?.senderUid}")
+                        }
                         try {
                             onEvent(ev)
                         } catch (e: Exception) {

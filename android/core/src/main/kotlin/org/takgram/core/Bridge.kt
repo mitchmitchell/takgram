@@ -77,6 +77,39 @@ class Bridge(
     private val contactUids = HashSet<String>()
     private val contactCallsigns = HashSet<String>()
 
+    private var chatContact: Identity? = null
+    private var chatEmit: Instant = Instant.MIN
+
+    /**
+     * Shows the linked chat itself as a contact in ATAK ("Telegram: <title>"), always online while
+     * the bridge runs. Members only appear while they share a position; this gives the user
+     * something to send a marker or a message to at any time.
+     */
+    @Synchronized
+    fun setChat(chatId: Long, title: String) {
+        val name = CotParse.clean(title, 40).ifEmpty { "chat" }
+        val id = Identity("${TELEGRAM_UID_PREFIX}CHAT-$chatId", "Telegram: $name", Teams.TELEGRAM_ONLY)
+        val old = chatContact
+        if (old != null && old.uid != id.uid) sink.send(CotBuild.delete(old.uid, now()))
+        chatContact = id
+        contactUids.add(id.uid)
+        contactCallsigns.add(id.callsign)
+        emitChat(id, now())
+    }
+
+    /** Removes the chat's contact from ATAK, when the bridge is turned off. */
+    @Synchronized
+    fun clearChat() {
+        chatContact?.let { sink.send(CotBuild.delete(it.uid, now())) }
+        chatContact = null
+    }
+
+    private fun emitChat(id: Identity, t: Instant) {
+        // A chat has no position. Like other TAK contacts without one, it sits at 0, 0.
+        sink.send(CotBuild.position(id.uid, id.callsign, id.team, 0.0, 0.0, null, null, POSITION_STALE_S, t))
+        chatEmit = t
+    }
+
     /** True if a chat member is shown in ATAK under this callsign. */
     @Synchronized
     fun isTelegramCallsign(callsign: String): Boolean = callsign in contactCallsigns
@@ -164,7 +197,9 @@ class Bridge(
         if (!ev.stale.isAfter(now())) return
         if (!dedup.isNew(ev.uid, ev.time.toEpochMilli())) return
         objectUids[ev.uid] = true
-        sink.send(CotBuild.fromEvent(ev))
+        // Whoever posted it created it. ATAK keeps this with the object, so if our user sends it
+        // on, the outbound policy can tell it is not theirs, even after this app has restarted.
+        sink.send(CotBuild.fromEvent(ev.copy(creatorUid = contact(m.sender).uid)))
     }
 
     private fun onLive(m: TgMessage, c: TgContent.LiveLocation) {
@@ -200,7 +235,7 @@ class Bridge(
         if (m.edited) return
         if (c.lat.isNaN() || c.lon.isNaN() || c.lat !in -90.0..90.0 || c.lon !in -180.0..180.0) return
         val by = contact(m.sender).callsign
-        val ref = PinRef("TGPIN-${m.chatId}-${m.messageId}", c.lat, c.lon, by)
+        val ref = PinRef("$PIN_UID_PREFIX${m.chatId}-${m.messageId}", c.lat, c.lon, by)
         pins[m.messageId] = ref
         objectUids[ref.uid] = true
         sink.send(CotBuild.marker(ref.uid, PIN_TYPE, "Pin ($by)", c.lat, c.lon, "Pin from $by via Telegram", PIN_STALE_S, now = now()))
@@ -213,6 +248,7 @@ class Bridge(
     @Synchronized
     fun tick() {
         val t = now()
+        chatContact?.let { if (!chatEmit.isAfter(t.minusSeconds(REPEAT_S))) emitChat(it, t) }
         val it = live.entries.iterator()
         while (it.hasNext()) {
             val e = it.next().value
@@ -254,13 +290,15 @@ class Bridge(
         const val FOREVER_S = 0x7FFFFFFFL
         const val PIN_STALE_S = 24 * 3600L
         const val PIN_TYPE = "a-u-G"
+        const val PIN_UID_PREFIX = "TGPIN-"
+        const val TELEGRAM_UID_PREFIX = "TG-"
         const val MAX_TEXT_CHARS = 16 * 1024
         private const val MAX_PINS = 200
         private const val MAX_OBJECTS = 2000
 
         fun telegramOnly(s: TgSender): Identity {
             val name = CotParse.clean(s.displayName, 40).ifEmpty { s.userId.toString() }
-            return Identity("TG-${s.userId}", "TG-$name", Teams.TELEGRAM_ONLY)
+            return Identity("$TELEGRAM_UID_PREFIX${s.userId}", "TG-$name", Teams.TELEGRAM_ONLY)
         }
     }
 }

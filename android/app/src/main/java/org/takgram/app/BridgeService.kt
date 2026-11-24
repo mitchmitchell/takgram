@@ -99,6 +99,7 @@ class BridgeService : Service(), LocationListener {
         prefs.edit().putBoolean(PREF_BRIDGE, true).apply()
         handler.postDelayed(ticker, TICK_MS)
         app.takServer.start()
+        app.bridge.setChat(tg.linkedChatId, tg.chatTitle(tg.linkedChatId))
         tg.note("bridge on: ${tg.chatTitle(tg.linkedChatId)} and ATAK")
         tg.loadIdentityCards(tg.linkedChatId)
         app.postIdentity()
@@ -183,6 +184,7 @@ class BridgeService : Service(), LocationListener {
     private fun stopEverything() {
         stopSharing(null)
         handler.removeCallbacks(ticker)
+        app.bridge.clearChat()
         app.takServer.stop()
         app.bridgeOn = false
         prefs.edit().putBoolean(PREF_BRIDGE, false).apply()

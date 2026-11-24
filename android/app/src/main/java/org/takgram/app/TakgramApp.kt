@@ -47,7 +47,7 @@ class TakgramApp : Application() {
             sink = { xml ->
                 io.execute {
                     try {
-                        CotUdpSender.send(xml)
+                        if (!takServer.send(xml)) CotUdpSender.send(xml)
                     } catch (e: Exception) {
                         tg.note("could not send to ATAK: ${e.message}")
                     }

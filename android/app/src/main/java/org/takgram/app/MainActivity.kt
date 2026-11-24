@@ -292,7 +292,11 @@ class MainActivity : Activity() {
                     tg.note("${c.title} cannot be linked (${c.kind}). Choose a person or a group.")
                 } else {
                     tg.linkedChatId = c.id
-                    if (app.bridgeOn) app.postIdentity()
+                    if (app.bridgeOn) {
+                        app.bridge.setChat(c.id, c.title)
+                        tg.loadIdentityCards(c.id)
+                        app.postIdentity()
+                    }
                 }
             }
             .show()

@@ -51,6 +51,8 @@ class OutboundPolicy(
         }
 
         if (cameFromTelegram(ev.uid)) return OutAction.Ignore
+        // The same rule without memory, for after a restart: these uids are only ever made by the bridge.
+        if (ev.uid.startsWith(Bridge.PIN_UID_PREFIX) || ev.uid.startsWith(Bridge.TELEGRAM_UID_PREFIX)) return OutAction.Ignore
         if (ev.creatorUid.isNotEmpty() && selfUid.isNotEmpty() && ev.creatorUid != selfUid) return OutAction.Ignore
         // Sent to named contacts rather than broadcast: it belongs in the chat only if one of them
         // is a chat member. Something sent privately to a Wi-Fi teammate stays private.

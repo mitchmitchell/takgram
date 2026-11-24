@@ -117,6 +117,7 @@ class BridgeTest {
         assertEquals("m-1", parsed().uid)
         assertEquals("Tank 1", parsed().callsign)
         assertFalse("unknown detail is not passed through", sent[0].contains("serverdestination") || sent[0].contains("endpoint"))
+        assertEquals("the poster is recorded as the creator", "TG-1001", parsed().creatorUid)
 
         bridge.onMessage(msg(bob, TgContent.Text(text)))
         assertEquals("same uid and time is a duplicate", 1, sent.size)
@@ -175,6 +176,28 @@ class BridgeTest {
         bridge.onMessage(msg(bob, live(expires = 0), edited = true))
         advance(70); bridge.tick()
         assertEquals(3, sent.size)
+    }
+
+    @Test
+    fun theLinkedChatIsAStandingContact() {
+        bridge.setChat(-500, "Ops <team>")
+        assertEquals(1, sent.size)
+        assertEquals("TG-CHAT--500", parsed().uid)
+        assertEquals("Telegram: Ops <team>", parsed().callsign)
+        assertTrue(sent[0].contains("endpoint=\"*:-1:stcp\""))
+        assertTrue(bridge.isTelegramContact("TG-CHAT--500"))
+        assertTrue(bridge.isTelegramCallsign("Telegram: Ops <team>"))
+        advance(30); bridge.tick()
+        assertEquals(1, sent.size)
+        advance(40); bridge.tick()
+        assertEquals("repeated so it stays online", 2, sent.size)
+        bridge.setChat(-600, "Other")
+        assertTrue("the old chat's contact is removed", sent[2].contains("t-x-d-d") && sent[2].contains("TG-CHAT--500"))
+        assertEquals("TG-CHAT--600", parsed().uid)
+        bridge.clearChat()
+        assertTrue(sent.last().contains("t-x-d-d") && sent.last().contains("TG-CHAT--600"))
+        advance(120); bridge.tick()
+        assertTrue(sent.last().contains("t-x-d-d"))
     }
 
     @Test

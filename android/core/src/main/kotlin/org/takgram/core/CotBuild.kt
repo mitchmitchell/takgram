@@ -172,6 +172,9 @@ object CotBuild {
             }
             if (ev.colorArgb != null) append("<color").append(attr("argb", ev.colorArgb.toString())).append("/>")
             if (ev.iconsetPath.isNotEmpty()) append("<usericon").append(attr("iconsetpath", ev.iconsetPath)).append("/>")
+            if (ev.creatorUid.isNotEmpty()) {
+                append("<link").append(attr("uid", ev.creatorUid)).append(" type=\"a-f-G-U-C\" relation=\"p-p\"/>")
+            }
             append("<remarks>").append(escape(ev.remarks)).append("</remarks>")
         }
         return envelope(ev.uid, ev.type, ev.how, ev.time, ev.stale, ev.lat, ev.lon, ev.hae, ev.ce, detail)

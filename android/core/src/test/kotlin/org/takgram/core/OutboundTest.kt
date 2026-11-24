@@ -73,6 +73,10 @@ class OutboundTest {
         val p = policy(fromTelegram = setOf("m-tg"))
         assertEquals(OutAction.Ignore, p.decide(ev(marker(uid = "m-tg"))))
         assertEquals(OutAction.Ignore, p.decide(ev(marker(creator = "ANDROID-someone-else"))))
+        // After a restart the bridge has forgotten what it injected; these must still stay out.
+        val fresh = policy()
+        assertEquals(OutAction.Ignore, fresh.decide(ev(marker(uid = "TGPIN--500-77", creator = ""))))
+        assertEquals(OutAction.Ignore, fresh.decide(ev(marker(uid = "TG-1001", creator = ""))))
         val directed = marker(extra = "<marti><dest callsign=\"BRAVO-6\"/></marti>")
         assertEquals("sent privately to a Wi-Fi teammate", OutAction.Ignore, p.decide(ev(directed)))
         val q = OutboundPolicy({ false }, { false }, { it == "TG-Ann" }).apply { decide(ev(atakSelf)) }
@@ -122,7 +126,8 @@ class OutboundTest {
         val back = CotParse.parse(rebuilt.toByteArray(), now)
         assertEquals("m-1", back.uid)
         assertEquals("Tank 1", back.callsign)
-        assertFalse(rebuilt.contains("parent_callsign") || rebuilt.contains("<link"))
+        assertFalse(rebuilt.contains("parent_callsign") || rebuilt.contains("production_time"))
+        assertEquals("the creator travels with the object", me, back.creatorUid)
     }
 
     @Test
