@@ -16,7 +16,8 @@ sealed interface OutAction {
     /** Post the text as an ordinary chat message. */
     data class ChatText(val text: String) : OutAction
 
-    data object Ignore : OutAction
+    /** Not posted. [why] is set when the user would expect a post, so the app can explain. */
+    data class Ignore(val why: String = "") : OutAction
 }
 
 /**
@@ -33,33 +34,39 @@ class OutboundPolicy(
 
     fun decide(ev: CotEvent): OutAction {
         val t = ev.type
-        if (t.startsWith("t-")) return OutAction.Ignore // pings, deletes and other control traffic
+        if (t.startsWith("t-")) return OutAction.Ignore() // pings, deletes and other control traffic
 
         val chat = ev.chat
         if (chat != null) {
-            if (selfUid.isNotEmpty() && chat.senderUid != selfUid) return OutAction.Ignore
-            if (chat.text.isEmpty()) return OutAction.Ignore
+            if (selfUid.isNotEmpty() && chat.senderUid != selfUid) return OutAction.Ignore()
+            if (chat.text.isEmpty()) return OutAction.Ignore()
             val toChat = chat.toUid == CotBuild.ALL_CHAT || isTelegramContact(chat.toUid)
-            return if (toChat) OutAction.ChatText(chat.text) else OutAction.Ignore
+            return if (toChat) OutAction.ChatText(chat.text) else OutAction.Ignore()
         }
 
         if (t.startsWith("a-") && ev.isTakClient) {
-            if (selfUid.isNotEmpty() && ev.uid != selfUid) return OutAction.Ignore
-            if (ev.callsign.isEmpty()) return OutAction.Ignore
+            if (selfUid.isNotEmpty() && ev.uid != selfUid) return OutAction.Ignore()
+            if (ev.callsign.isEmpty()) return OutAction.Ignore()
             selfUid = ev.uid
             return OutAction.SelfSeen(Identity(ev.uid, ev.callsign, ev.team.ifEmpty { Teams.DEFAULT }))
         }
 
-        if (cameFromTelegram(ev.uid)) return OutAction.Ignore
+        if (cameFromTelegram(ev.uid)) return OutAction.Ignore("it came from Telegram")
         // The same rule without memory, for after a restart: these uids are only ever made by the bridge.
-        if (ev.uid.startsWith(Bridge.PIN_UID_PREFIX) || ev.uid.startsWith(Bridge.TELEGRAM_UID_PREFIX)) return OutAction.Ignore
-        if (ev.creatorUid.isNotEmpty() && selfUid.isNotEmpty() && ev.creatorUid != selfUid) return OutAction.Ignore
+        if (ev.uid.startsWith(Bridge.PIN_UID_PREFIX) || ev.uid.startsWith(Bridge.TELEGRAM_UID_PREFIX)) {
+            return OutAction.Ignore("it came from Telegram")
+        }
+        if (ev.creatorUid.isNotEmpty() && selfUid.isNotEmpty() && ev.creatorUid != selfUid) {
+            return OutAction.Ignore("someone else created it")
+        }
         // Sent to named contacts rather than broadcast: it belongs in the chat only if one of them
         // is a chat member. Something sent privately to a Wi-Fi teammate stays private.
-        if (ev.destCallsigns.isNotEmpty() && ev.destCallsigns.none(isTelegramCallsign)) return OutAction.Ignore
+        if (ev.destCallsigns.isNotEmpty() && ev.destCallsigns.none(isTelegramCallsign)) {
+            return OutAction.Ignore("it was sent only to contacts outside the chat")
+        }
 
         val postable = t.startsWith("a-") || t.startsWith("b-m-p") || t.startsWith("b-a-") || t == "b-r-f-h-c"
-        return if (postable) OutAction.Card(ev) else OutAction.Ignore
+        return if (postable) OutAction.Card(ev) else OutAction.Ignore("shapes and routes are not supported yet")
     }
 }
 

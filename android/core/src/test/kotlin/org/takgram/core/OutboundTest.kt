@@ -55,7 +55,7 @@ class OutboundTest {
         assertEquals(OutAction.SelfSeen(Identity(me, "BARRACUDA", "Orange")), a)
         assertEquals(me, p.selfUid)
         val other = atakSelf.replace(me, "ANDROID-someone-else")
-        assertEquals(OutAction.Ignore, p.decide(ev(other)))
+        assertTrue(p.decide(ev(other)) is OutAction.Ignore)
     }
 
     @Test
@@ -64,23 +64,23 @@ class OutboundTest {
         assertTrue(p.decide(ev(marker())) is OutAction.Card)
         assertTrue(p.decide(ev(marker(type = "b-m-p-s-m"))) is OutAction.Card)
         assertTrue(p.decide(ev(marker(uid = "$me-9-1-1", type = "b-a-o-tbl"))) is OutAction.Card)
-        assertEquals(OutAction.Ignore, p.decide(ev(marker(type = "u-d-r"))))
-        assertEquals(OutAction.Ignore, p.decide(ev(marker(type = "t-x-d-d"))))
+        assertTrue(p.decide(ev(marker(type = "u-d-r"))) is OutAction.Ignore)
+        assertTrue(p.decide(ev(marker(type = "t-x-d-d"))) is OutAction.Ignore)
     }
 
     @Test
     fun nothingFromTelegramOrFromOtherCreatorsIsPostedBack() {
         val p = policy(fromTelegram = setOf("m-tg"))
-        assertEquals(OutAction.Ignore, p.decide(ev(marker(uid = "m-tg"))))
-        assertEquals(OutAction.Ignore, p.decide(ev(marker(creator = "ANDROID-someone-else"))))
+        assertTrue(p.decide(ev(marker(uid = "m-tg"))) is OutAction.Ignore)
+        assertTrue(p.decide(ev(marker(creator = "ANDROID-someone-else"))) is OutAction.Ignore)
         // After a restart the bridge has forgotten what it injected; these must still stay out.
         val fresh = policy()
-        assertEquals(OutAction.Ignore, fresh.decide(ev(marker(uid = "TGPIN--500-77", creator = ""))))
-        assertEquals(OutAction.Ignore, fresh.decide(ev(marker(uid = "TG-1001", creator = ""))))
+        assertTrue(fresh.decide(ev(marker(uid = "TGPIN--500-77", creator = ""))) is OutAction.Ignore)
+        assertTrue(fresh.decide(ev(marker(uid = "TG-1001", creator = ""))) is OutAction.Ignore)
         val directed = marker(extra = "<marti><dest callsign=\"BRAVO-6\"/></marti>")
-        assertEquals("sent privately to a Wi-Fi teammate", OutAction.Ignore, p.decide(ev(directed)))
+        assertTrue("sent privately to a Wi-Fi teammate", p.decide(ev(directed)) is OutAction.Ignore)
         val q = OutboundPolicy({ false }, { false }, { it == "TG-Ann" }).apply { decide(ev(atakSelf)) }
-        assertEquals(OutAction.Ignore, q.decide(ev(directed)))
+        assertTrue(q.decide(ev(directed)) is OutAction.Ignore)
         val toAnn = marker(extra = "<marti><dest callsign=\"BRAVO-6\"/><dest callsign=\"TG-Ann\"/></marti>")
         assertTrue("sent to a chat member", q.decide(ev(toAnn)) is OutAction.Card)
     }
@@ -90,8 +90,8 @@ class OutboundTest {
         val p = policy(contacts = setOf("TG-1001"))
         assertEquals(OutAction.ChatText("Roger"), p.decide(chat(me, "All Chat Rooms", "Roger")))
         assertEquals(OutAction.ChatText("for Ann"), p.decide(chat(me, "TG-1001", "for Ann")))
-        assertEquals(OutAction.Ignore, p.decide(chat(me, "ANDROID-wifi-peer", "private")))
-        assertEquals(OutAction.Ignore, p.decide(chat("TG-1001", "All Chat Rooms", "echo")))
+        assertTrue(p.decide(chat(me, "ANDROID-wifi-peer", "private")) is OutAction.Ignore)
+        assertTrue(p.decide(chat("TG-1001", "All Chat Rooms", "echo")) is OutAction.Ignore)
     }
 
     @Test

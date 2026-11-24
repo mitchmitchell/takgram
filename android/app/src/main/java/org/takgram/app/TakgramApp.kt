@@ -36,6 +36,7 @@ class TakgramApp : Application() {
     private lateinit var outbox: Outbox
     private lateinit var policy: OutboundPolicy
     private val postedVersions = Dedup()
+    private val explained = Dedup()
 
     private val io = Executors.newSingleThreadExecutor()
     private val prefs by lazy { getSharedPreferences("takgram", Context.MODE_PRIVATE) }
@@ -91,7 +92,9 @@ class TakgramApp : Application() {
             is OutAction.ChatText ->
                 if (canPost) outbox.text(chat, action.text)
                 else if (BuildConfig.DEBUG) tg.note("would post chat (no chat linked): ${action.text.take(80)}")
-            OutAction.Ignore -> Unit
+            is OutAction.Ignore -> if (action.why.isNotEmpty() && explained.isNew(ev.uid, ev.time.toEpochMilli())) {
+                tg.note("not posted: ${ev.callsign.ifEmpty { ev.uid }} (${action.why})")
+            }
         }
     }
 

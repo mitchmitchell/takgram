@@ -33,7 +33,7 @@ android {
         applicationId = "org.takgram.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
+        versionCode = 6
         versionName = "0.0.3-a2"
         buildConfigField("int", "TG_API_ID", apiId)
         buildConfigField("String", "TG_API_HASH", "\"$apiHash\"")
