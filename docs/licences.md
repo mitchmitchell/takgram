@@ -23,7 +23,7 @@ studied; their code is not copied or adapted.
 | Component | Version | Licence |
 | --- | --- | --- |
 | Android Gradle Plugin | 9.5.2 | Apache-2.0 |
-| Gradle | 9.9.2 | Apache-2.0 |
+| Gradle (and the wrapper files `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar` kept in the repository) | 9.9.2 | Apache-2.0 |
 | Kotlin Gradle plugin | 2.4.21 | Apache-2.0 |
 | JUnit | 4.13.2 | EPL-1.0 (test scope only) |
 | Android NDK r28.2 / SDK | 28.2.13676358 | Android SDK licence (tools only) |

@@ -5,7 +5,7 @@ for what has been verified so far.
 
 ## Modules
 
-- `:core`: pure Kotlin, no Android imports, tested on the JVM (`gradle :core:test`).
+- `:core`: pure Kotlin, no Android imports, tested on the JVM (`./gradlew :core:test`).
 - `:app`: the Android app. `Tg` is the only class that talks to TDLib; it hands plain `TgMessage` values to
   `core.Bridge`, which is tested against made-up messages. `BridgeService` keeps it running in the background.
 
@@ -31,8 +31,8 @@ so use a local Gradle 9.9.2 for now.
 
    ```sh
    cd android
-   gradle :core:test :app:assembleDebug                         # debug build uses Telegram's TEST servers
-   gradle :app:assembleDebug -Ptakgram.testDc=false             # debug build against production servers
+   ./gradlew :core:test :app:assembleDebug                         # debug build uses Telegram's TEST servers
+   ./gradlew :app:assembleDebug -Ptakgram.testDc=false             # debug build against production servers
    ```
 
 Debug builds accept adb intent extras so emulator tests can run unattended. See the comment in
