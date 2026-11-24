@@ -46,3 +46,71 @@ moving. Then tap **Stop sharing** in the notification: the live location in Tele
 
 Expected: the live location in Telegram follows. If it does not, note the phone make and model, the Android
 version, and whether Settings > Apps > TAKgram > Battery is "Optimised" or "Unrestricted".
+
+## A1
+
+Status on 2026-11-23 (Galaxy Z Fold with ATAK-CIV 5.8, second account on an iPhone): **D5 pass, D6 pass,
+D7 step 1 pass, D8 runs (jumping not yet reported on), D9 pass** (card posted, then edited in place). Not
+yet confirmed: D7 step 2 (naming a pin), D10 (needs a second Android phone), D11.
+
+Tested on the emulator with made-up Telegram messages: teammate position, identity card, chat, pin, pin
+naming and a `#cot1` marker all appear in ATAK-CIV 5.8. The checks below need real accounts and phones.
+
+Setup for all of them: TAKgram signed in on phone A, a linked chat with a second account, ATAK open on
+phone A, and **Turn bridge on** tapped in TAKgram.
+
+### D5. A Telegram-only teammate appears in ATAK
+
+1. On the second account (plain Telegram, any phone), share a live location into the linked chat for 15
+   minutes.
+2. On phone A, open ATAK and its contact list.
+
+Expected: a contact named `TG-<first name>` at that position, in white. It follows the other phone as it
+moves and stays on the map while the share is active. TAKgram's status line "Sharing with me" names it.
+
+### D6. A Telegram message arrives in ATAK chat
+
+1. From the second account, send the text `radio check` into the linked chat.
+
+Expected: ATAK shows a new chat message in **All Chat Rooms** from `TG-<first name>` reading `radio check`.
+
+### D7. A pin becomes a marker and a reply names it
+
+1. From the second account, send a location pin (attach > Location > pick a point) into the linked chat.
+2. Reply to that pin with the text `Rally point`.
+
+Expected: after step 1 a yellow marker named `Pin (TG-<first name>)` at that point in ATAK. After step 2 the
+same marker is named `Rally point`.
+
+### D8. Own position reaches the chat, without jumping
+
+1. In TAKgram tap **Share my position**. Watch the linked chat from the second account for 10 minutes while
+   moving, then for 5 minutes while still.
+
+Expected: a live location that follows phone A with no jumps to far-off points. While still, it does not
+move, and Telegram keeps showing it as live.
+
+### D9. Identity card
+
+1. In TAKgram set a callsign and team colour, then tap **Save identity and post it to the chat**.
+
+Expected: one message in the chat reading "TAKgram identity", the callsign and the team. Changing the
+callsign and saving again edits that message; no second card appears.
+
+### D10. Two TAKgram phones see each other (A1 exit test)
+
+Needs two Android phones, each with ATAK and TAKgram, signed in to different Telegram accounts, linked to
+the same chat, on different networks (one on mobile data), both with the bridge on and sharing on.
+
+Expected: each ATAK shows the other user as a contact with the callsign and team colour from that user's
+identity card, moving as the phone moves. A third, Telegram-only member of the chat sees both live locations.
+On either phone, **Post a test marker to the chat** makes a yellow marker named "Test marker (callsign)"
+appear in the other phone's ATAK.
+
+### D11. Bridge survives the screen being off
+
+1. With the bridge on and ATAK running, lock phone A for 30 minutes while the second account keeps sharing
+   and moving.
+2. Unlock and open ATAK.
+
+Expected: the teammate's icon is at the current position and not stale (grey).

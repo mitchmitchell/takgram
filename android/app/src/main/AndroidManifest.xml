@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -26,9 +27,15 @@
             </intent-filter>
         </activity>
 
+        <!-- specialUse: keeps the Telegram connection open so teammates' positions reach ATAK
+             while the screen is off. location: only while the user has position sharing on. -->
         <service
-            android:name=".LocationShareService"
+            android:name=".BridgeService"
             android:exported="false"
-            android:foregroundServiceType="location" />
+            android:foregroundServiceType="location|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Relays the user's chosen Telegram chat to the ATAK mapping app on the same phone" />
+        </service>
     </application>
 </manifest>

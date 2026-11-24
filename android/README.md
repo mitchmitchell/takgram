@@ -6,7 +6,10 @@ for what has been verified so far.
 ## Modules
 
 - `:core`: pure Kotlin, no Android imports, tested on the JVM (`gradle :core:test`).
-- `:app`: the Android app. TDLib sits behind `Tg`.
+- `:app`: the Android app. `Tg` is the only class that talks to TDLib; it hands plain `TgMessage` values to
+  `core.Bridge`, which is tested against made-up messages. `BridgeService` keeps it running in the background.
+
+Message formats are specified in [../docs/message-formats.md](../docs/message-formats.md).
 
 ## Building
 
