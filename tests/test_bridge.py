@@ -182,3 +182,45 @@ async def test_setup_mode_answers_id_and_publishes_nothing(cfg, bot):
     await b.on_update({"channel_post": {"chat": {"id": -100123}, "text": "/id"}})
     await settle(b)
     assert bot.methods() == ["sendMessage"] and "-100123" in bot.calls[0][1]["text"]
+
+
+# Captured from ATAK-CIV 5.8.0.10 connected to a streaming TCP input (2026-11-22).
+ATAK_PING = (
+    b'<?xml version="1.0"?>\n<event version="2.0" uid="ANDROID-f2ea670fc71b500d-ping" type="t-x-c-t" '
+    b'access="Undefined" time="2026-11-23T04:12:48.490Z" start="2026-11-23T04:12:48.490Z" '
+    b'stale="2026-11-23T04:12:58.490Z" how="m-g"><point lat="0.00000000" lon="0.00000000" '
+    b'hae="0.00000000" ce="9999999" le="9999999"/><detail/></event>'
+)
+
+
+async def test_endpoint_answers_atak_ping_and_does_not_relay_it(cfg, bot):
+    seen = []
+
+    async def handler(ev, source, client):
+        seen.append(ev.type)
+        return True
+
+    ep = Endpoint("127.0.0.1", 0, handler)
+    await ep.start()
+    try:
+        ra, wa = await asyncio.open_connection("127.0.0.1", ep.port)
+        rb, wb = await asyncio.open_connection("127.0.0.1", ep.port)
+        wa.write(ATAK_PING)
+        split, out = cot.StreamSplitter(), []
+        while not out:
+            out += split.feed(await asyncio.wait_for(ra.read(65536), 1.0))
+        pong = cot.parse(out[0])
+        assert pong.type == cot.PONG and pong.kind == "other"
+        assert pong.stale > pong.time
+        await asyncio.sleep(0.1)
+        assert seen == [] and rb._buffer == b""  # pings never reach the bridge or other clients
+        wa.close()
+        wb.close()
+    finally:
+        await ep.stop()
+
+
+def test_ping_is_recognised_and_default_port_avoids_atak():
+    assert cot.parse(ATAK_PING).kind == "ping"
+    from takgram.config import Config
+    assert Config().endpoint_port == 8099  # ATAK itself listens on 8087

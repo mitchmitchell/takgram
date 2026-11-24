@@ -19,7 +19,7 @@ def main(argv: list[str] | None = None) -> int:
 
     d = sub.add_parser("datapackage", help="write a connection data package for TAK clients")
     d.add_argument("--host", required=True, help="address TAK clients use to reach the bridge")
-    d.add_argument("--port", type=int, default=8087)
+    d.add_argument("--port", type=int, default=8099)
     d.add_argument("-o", "--out", default="takgram-connection.zip")
 
     c = sub.add_parser("card", help="render one CoT XML file to a card image and caption (no network to Telegram)")

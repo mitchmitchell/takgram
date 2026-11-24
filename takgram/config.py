@@ -22,7 +22,7 @@ class Config:
 
     endpoint_enabled: bool = True
     endpoint_host: str = "0.0.0.0"
-    endpoint_port: int = 8087
+    endpoint_port: int = 8099
     endpoint_public_host: str = ""
 
     callsign: str = "TAKgram"
@@ -54,7 +54,7 @@ def load(path: str) -> Config:
     c.mesh_direct_port = int(mesh.get("direct_port", 4242))
     c.endpoint_enabled = bool(ep.get("enabled", "listen_port" in ep))
     c.endpoint_host = ep.get("listen_host", "0.0.0.0")
-    c.endpoint_port = int(ep.get("listen_port", 8087))
+    c.endpoint_port = int(ep.get("listen_port", 8099))
     c.endpoint_public_host = ep.get("public_host", "")
     for k in ("callsign", "uid", "db_path", "icons_dir", "tile_url", "tile_cache", "zoom"):
         if k in br:
