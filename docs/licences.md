@@ -14,6 +14,7 @@ studied; their code is not copied or adapted.
 | OpenSSL (statically linked into `libtdjni.so`) | 3.5.9 (LTS) | Apache-2.0 | 3.x is Apache-2.0; 1.1.1 (TDLib's default) was avoided because it is end-of-life and uses the older dual licence. |
 | `androidx.annotation:annotation` | 1.11.0 | Apache-2.0 | Needed by the generated TdApi.java. |
 | ZXing core (`com.google.zxing:core`) | 3.5.4 | Apache-2.0 | Draws the QR code for QR sign-in. |
+| OpenStreetMap map tiles (data, not code) | n/a | ODbL 1.0 (data), tile usage policy of the OSMF | Background of object cards. Fetched at run time from `tile.openstreetmap.org`, never stored in the repository. Credited on every picture as "© OpenStreetMap contributors". The public tile server allows light use only: identify the app, cache tiles, no bulk download. To review before a build is shared widely. |
 | Kotlin standard library | 2.4.21 | Apache-2.0 | |
 | LLVM libc++ (static, `c++_static`) | NDK r28 | Apache-2.0 with LLVM exception | |
 

@@ -206,7 +206,10 @@ class BridgeService : Service(), LocationListener {
 
     private fun foreground(location: Boolean) {
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "TAKgram bridge", NotificationManager.IMPORTANCE_LOW))
+        // No badge on the app icon: this notification only says the bridge is running.
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL, "TAKgram bridge", NotificationManager.IMPORTANCE_LOW).apply { setShowBadge(false) },
+        )
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val b = Notification.Builder(this, CHANNEL)
             .setSmallIcon(if (location) android.R.drawable.ic_menu_mylocation else android.R.drawable.ic_menu_share)

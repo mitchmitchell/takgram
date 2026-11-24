@@ -58,6 +58,18 @@ class SharePolicy(
 }
 
 object Geo {
+    /**
+     * Web Mercator position of a point, in pixels from the top-left of the whole world map at
+     * [zoom], for map tiles [tile] pixels wide. Latitude is clamped to the projection's limit.
+     */
+    fun worldPx(lat: Double, lon: Double, zoom: Int, tile: Int = 256): Pair<Double, Double> {
+        val n = tile * Math.pow(2.0, zoom.toDouble())
+        val x = (lon + 180.0) / 360.0 * n
+        val phi = Math.toRadians(lat.coerceIn(-85.0511, 85.0511))
+        val y = (1.0 - Math.log(Math.tan(phi) + 1.0 / cos(phi)) / Math.PI) / 2.0 * n
+        return x to y
+    }
+
     fun distanceM(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val p1 = Math.toRadians(lat1)
         val p2 = Math.toRadians(lat2)

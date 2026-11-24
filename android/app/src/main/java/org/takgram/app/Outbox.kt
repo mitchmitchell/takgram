@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
  * Posts what the user created in ATAK to the linked chat, one Telegram call at a time and no
  * faster than the queue allows. An object is one message, edited in place when the object changes.
  */
-class Outbox(private val tg: Tg, private val prefs: SharedPreferences) {
+class Outbox(private val tg: Tg, private val prefs: SharedPreferences, private val renderer: CardRenderer) {
 
     private sealed interface Job {
         data class Card(val ev: CotEvent) : Job
@@ -55,23 +55,32 @@ class Outbox(private val tg: Tg, private val prefs: SharedPreferences) {
     }
 
     private fun postCard(item: OutQueue.Item<Job>, ev: CotEvent) {
-        val text = Caption.card(ev, Caption.TEXT_LIMIT) ?: Caption.lines(ev).joinToString("\n")
+        val text = Caption.card(ev, Caption.PHOTO_LIMIT) ?: Caption.lines(ev).joinToString("\n")
         val key = messageKey(item.chat, ev.uid)
         val existing = prefs.getLong(key, 0L)
-        val sendNew = {
-            tg.sendText(item.chat, text) { id, error ->
-                if (id != null) prefs.edit().putLong(key, id).apply()
-                finish(item, if (id != null) null else error)
-            }
+        val remember = { id: Long?, error: String? ->
+            if (id != null) prefs.edit().putLong(key, id).apply()
+            finish(item, if (id != null) null else error)
         }
+        // Runs on the outbox thread, so fetching map tiles here holds up nothing else.
+        val picture = try {
+            renderer.render(ev)
+        } catch (e: Exception) {
+            null
+        }
+        if (picture == null) {
+            tg.sendCardText(item.chat, text, remember)
+            return
+        }
+        val sendNew = { tg.sendCard(item.chat, picture.path, CardRenderer.W, CardRenderer.H, text, remember) }
         if (existing == 0L) {
             sendNew()
         } else {
-            tg.editText(item.chat, existing, text) { error ->
+            tg.editCard(item.chat, existing, picture.path, CardRenderer.W, CardRenderer.H, text) { error ->
                 when {
                     error == null || error.contains("not modified", ignoreCase = true) -> finish(item, null)
                     retryAfterMs(error) != null -> finish(item, error)
-                    // Deleted, or older than Telegram's edit window: post a fresh card.
+                    // Deleted, a text card from an older build, or past Telegram's edit window: post a fresh card.
                     else -> sendNew()
                 }
             }

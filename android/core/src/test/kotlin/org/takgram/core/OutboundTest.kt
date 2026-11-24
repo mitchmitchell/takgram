@@ -131,6 +131,29 @@ class OutboundTest {
     }
 
     @Test
+    fun coordinatesGridAndMachineLineAreMarkedAsCode() {
+        val card = Caption.card(ev(marker()), Caption.PHOTO_LIMIT)!!
+        val parts = Caption.codeRanges(card).map { card.substring(it) }
+        assertEquals(3, parts.size)
+        assertEquals("30.30000, -97.70000", parts[0])
+        assertTrue(parts[1], Regex("14R [A-Z]{2} \\d{4} \\d{4}").matches(parts[1]))
+        assertTrue(parts[2].startsWith("#cot1 "))
+        assertTrue(Caption.codeRanges("just one line").isEmpty())
+    }
+
+    @Test
+    fun worldPixelsFollowWebMercator() {
+        val (x0, y0) = Geo.worldPx(0.0, 0.0, 0)
+        assertEquals(128.0, x0, 1e-6)
+        assertEquals(128.0, y0, 1e-6)
+        val (x, y) = Geo.worldPx(85.0511, -180.0, 1)
+        assertEquals(0.0, x, 1e-6)
+        assertEquals(0.0, y, 0.01)
+        val (_, ySouth) = Geo.worldPx(-89.0, 0.0, 1)
+        assertEquals("clamped at the projection limit", 512.0, ySouth, 0.01)
+    }
+
+    @Test
     fun captionCutsLongRemarksAndGivesUpOnlyWhenEssentialsDoNotFit() {
         val long = ev(marker(remarks = "x".repeat(1900)))
         val card = Caption.card(long, Caption.PHOTO_LIMIT)!!

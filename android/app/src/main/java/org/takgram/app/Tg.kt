@@ -7,6 +7,7 @@ import android.telephony.TelephonyManager
 import android.util.Log
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
+import org.takgram.core.Caption
 import org.takgram.core.TgContent
 import org.takgram.core.TgMessage
 import org.takgram.core.TgSender
@@ -192,6 +193,34 @@ class Tg(private val ctx: Context) {
             done((r as? TdApi.Error)?.let { "${it.code} ${it.message}" })
         }
     }
+
+    /** Card text with its coordinates, grid and machine line in fixed-width type. */
+    private fun cardText(text: String): TdApi.FormattedText {
+        val entities = Caption.codeRanges(text).map {
+            TdApi.TextEntity(it.first, it.last - it.first + 1, TdApi.TextEntityTypeCode())
+        }
+        return TdApi.FormattedText(text, entities.toTypedArray())
+    }
+
+    private fun photo(path: String, width: Int, height: Int, caption: String): TdApi.InputMessagePhoto {
+        val input = TdApi.InputPhoto(TdApi.InputFileLocal(path), null, null, IntArray(0), width, height)
+        return TdApi.InputMessagePhoto(input, cardText(caption), false, null, false)
+    }
+
+    /** Sends an object card: a picture with the card text as its caption. */
+    fun sendCard(chatId: Long, path: String, width: Int, height: Int, caption: String, done: (Long?, String?) -> Unit) =
+        send(chatId, photo(path, width, height, caption), done)
+
+    /** Replaces the picture and caption of a card already in the chat. */
+    fun editCard(chatId: Long, messageId: Long, path: String, width: Int, height: Int, caption: String, done: (String?) -> Unit) {
+        client.send(TdApi.EditMessageMedia(chatId, messageId, null, photo(path, width, height, caption))) { r ->
+            done((r as? TdApi.Error)?.let { "${it.code} ${it.message}" })
+        }
+    }
+
+    /** Sends an object card as text only, for when no picture could be drawn. */
+    fun sendCardText(chatId: Long, text: String, done: (Long?, String?) -> Unit) =
+        send(chatId, TdApi.InputMessageText(cardText(text), null, false), done)
 
     private fun send(chatId: Long, content: TdApi.InputMessageContent, done: (Long?, String?) -> Unit) {
         client.send(TdApi.SendMessage(chatId, null, null, null, null, content)) { r ->

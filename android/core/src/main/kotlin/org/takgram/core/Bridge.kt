@@ -194,9 +194,18 @@ class Bridge(
             log("dropped a #cot1 message from ${m.sender.displayName}: ${e.message}")
             return
         }
-        if (!ev.stale.isAfter(now())) return
+        val name = Caption.title(ev)
+        if (!ev.stale.isAfter(now())) {
+            log("not shown: \"$name\" from ${contact(m.sender).callsign} has expired")
+            return
+        }
         if (!dedup.isNew(ev.uid, ev.time.toEpochMilli())) return
         objectUids[ev.uid] = true
+        log(
+            "${if (m.edited) "updated" else "received"} \"$name\" (${CotTypes.describe(ev.type)}) from " +
+                "${contact(m.sender).callsign} at ${"%.5f, %.5f".format(java.util.Locale.ROOT, ev.lat, ev.lon)} " +
+                "MGRS ${Mgrs.of(ev.lat, ev.lon)}",
+        )
         // Whoever posted it created it. ATAK keeps this with the object, so if our user sends it
         // on, the outbound policy can tell it is not theirs, even after this app has restarted.
         sink.send(CotBuild.fromEvent(ev.copy(creatorUid = contact(m.sender).uid)))

@@ -33,6 +33,8 @@ class TakgramApp : Application() {
 
     lateinit var takServer: TakServer
         private set
+    lateinit var cards: CardRenderer
+        private set
     private lateinit var outbox: Outbox
     private lateinit var policy: OutboundPolicy
     private val postedVersions = Dedup()
@@ -57,7 +59,8 @@ class TakgramApp : Application() {
             log = { tg.note(it) },
         )
         tg.onLinkedMessage = { m -> if (bridgeOn) bridge.onMessage(m) }
-        outbox = Outbox(tg, prefs)
+        cards = CardRenderer(this)
+        outbox = Outbox(tg, prefs, cards)
         policy = OutboundPolicy(bridge::cameFromTelegram, bridge::isTelegramContact, bridge::isTelegramCallsign)
         takServer = TakServer(
             port = ConnectionPackage.PORT,

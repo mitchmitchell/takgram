@@ -51,7 +51,9 @@ version, and whether Settings > Apps > TAKgram > Battery is "Optimised" or "Unre
 
 Status on 2026-11-23 (Galaxy Z Fold with ATAK-CIV 5.8, second account on an iPhone): **D5 pass, D6 pass,
 D7 pass** (pin, then named by a reply), **D8 runs** (jumping not yet reported on), **D9 pass** (card posted,
-then edited in place). Not yet confirmed: D10 (needs a second Android phone), D11.
+then edited in place). **D10 pass on a shared Wi-Fi network** (2026-11-24, Fold and a tablet, each running
+ATAK and TAKgram on its own account: each app's log shows the other's identity card and live location
+arriving through Telegram). Not yet confirmed: D10 with the two devices on different networks, D11.
 
 Tested on the emulator with made-up Telegram messages: teammate position, identity card, chat, pin, pin
 naming and a `#cot1` marker all appear in ATAK-CIV 5.8. The checks below need real accounts and phones.

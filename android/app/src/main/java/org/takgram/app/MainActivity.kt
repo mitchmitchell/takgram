@@ -404,6 +404,13 @@ class MainActivity : Activity() {
             "off" -> BridgeService.send(this, BridgeService.ACTION_STOP)
         }
         if (i.getBooleanExtra("connect_atak", false)) window.decorView.postDelayed({ connectAtak() }, 2500)
+        i.getStringExtra("render_test")?.let { type ->
+            io.execute {
+                val xml = CotBuild.marker("render-test", type, "R.23.232727", 30.2672, -97.7431, "render test")
+                val file = app.cards.render(org.takgram.core.CotParse.parse(xml.toByteArray()))
+                tg.note("debug: rendered ${file.path}")
+            }
+        }
         when (i.getStringExtra("share")) {
             "on" -> toggleSharing()
             "off" -> BridgeService.send(this, BridgeService.ACTION_SHARE_OFF)

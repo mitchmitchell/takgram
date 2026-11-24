@@ -20,6 +20,12 @@ Hostile ground armor
 - Only the last line is examined. A `#cot1` anywhere else in a message is ordinary text.
 - Limits: payload at most 8 192 characters; inflated XML at most 64 KiB. Anything larger is dropped.
 - The same line is read from a text message or from the caption of a photo or document.
+- TAKgram posts an object as a photo (the object's symbol and name on a map thumbnail) with this text as
+  the caption, cut to Telegram's 1 024-character caption limit. If no picture can be drawn it posts the
+  same text as a plain message. The coordinates, the grid reference and the machine line are sent as
+  fixed-width text, so Telegram does not turn grid digits into a phone-number link.
+- The map thumbnail uses OpenStreetMap tiles, fetched by the posting phone, cached on it and credited on
+  the picture. With no network for tiles the symbol is drawn on a plain grid.
 
 Receiving app:
 

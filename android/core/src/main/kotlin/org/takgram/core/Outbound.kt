@@ -106,6 +106,26 @@ object Caption {
     }
 
     /**
+     * The parts of a card to show in fixed-width type: the coordinates, the grid reference and the
+     * machine line. Without this Telegram turns the grid digits into a phone-number link and the
+     * tag into a hashtag link. Ranges are in UTF-16 units, as Telegram counts them.
+     */
+    fun codeRanges(card: String): List<IntRange> {
+        val out = ArrayList<IntRange>()
+        var start = 0
+        val lines = card.split('\n')
+        for ((i, line) in lines.withIndex()) {
+            val isCode = i == 1 || line.startsWith("MGRS ") || (i == lines.lastIndex && line.startsWith(Cot1Codec.TAG))
+            if (isCode && line.isNotEmpty()) {
+                val from = if (line.startsWith("MGRS ")) start + 5 else start
+                out.add(from until start + line.length)
+            }
+            start += line.length + 1
+        }
+        return out
+    }
+
+    /**
      * The whole card text within [limit] characters, ending in the #cot1 line. Remarks are cut to
      * fit. Returns null if even the essentials do not fit, in which case the event goes as a
      * `.cot` document instead.

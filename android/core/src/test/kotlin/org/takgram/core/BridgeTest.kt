@@ -10,7 +10,8 @@ import java.time.Instant
 class BridgeTest {
     private var clock = Instant.parse("2026-11-23T12:00:00Z")
     private val sent = ArrayList<String>()
-    private val bridge = Bridge({ sent.add(it) }, { clock })
+    private val logged = ArrayList<String>()
+    private val bridge = Bridge({ sent.add(it) }, { clock }, { logged.add(it) })
 
     private val ann = TgSender(1001, "Ann", isBot = false, isSelf = false)
     private val bob = TgSender(1002, "Bob", isBot = false, isSelf = false)
@@ -118,12 +119,19 @@ class BridgeTest {
         assertEquals("Tank 1", parsed().callsign)
         assertFalse("unknown detail is not passed through", sent[0].contains("serverdestination") || sent[0].contains("endpoint"))
         assertEquals("the poster is recorded as the creator", "TG-1001", parsed().creatorUid)
+        assertEquals(
+            "the log says what arrived, from whom and where",
+            "received \"Tank 1\" (${CotTypes.describe("a-h-G-U-C-A")}) from TG-Ann at 30.30000, -97.70000 MGRS ${Mgrs.of(30.3, -97.7)}",
+            logged.single(),
+        )
 
         bridge.onMessage(msg(bob, TgContent.Text(text)))
         assertEquals("same uid and time is a duplicate", 1, sent.size)
         val newer = original.replace("time=\"2026-11-23T11:59:00.000Z\"", "time=\"2026-11-23T11:59:30.000Z\"")
         bridge.onMessage(msg(ann, TgContent.Text("x\n" + Cot1Codec.encode(newer)), edited = true))
         assertEquals("a newer version of the object is sent", 2, sent.size)
+        assertEquals(2, logged.size)
+        assertTrue(logged[1], logged[1].startsWith("updated \"Tank 1\""))
     }
 
     @Test
