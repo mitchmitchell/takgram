@@ -112,6 +112,9 @@ class Tg(private val ctx: Context) {
         }
     }.sortedWith(compareBy({ !it.usable }, { it.title.lowercase(Locale.ROOT) }))
 
+    /** The name for the chat's contact in ATAK: a group's title, or empty for a one-to-one chat. */
+    fun chatContactName(id: Long): String = if (id > 0) "" else chatTitle(id)
+
     fun chatTitle(id: Long): String = chats[id]?.title ?: if (id == 0L) "none" else "chat $id"
 
     // ---- sign-in -------------------------------------------------------------------------------
