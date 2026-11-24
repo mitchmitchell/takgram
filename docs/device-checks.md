@@ -117,6 +117,14 @@ Expected: the teammate's icon is at the current position and not stale (grey).
 
 ## A2
 
+Status on 2026-11-23 (Galaxy Z Fold with ATAK-CIV 5.8, second account on an iPhone): **D12 pass, D13 pass,
+D14 pass, D16 pass**. A marker that had come from a Telegram pin was correctly not posted back. Not yet
+confirmed: D15 (sending to the "Telegram: ..." contact), D17 (emergency alert), D18 (needs a second Android
+phone).
+
+Observed: because a card is edited in place, an update to an older marker happens far back in the chat and
+is easy to miss. To decide whether an update should also be announced.
+
 Tested on the emulator with ATAK-CIV 5.8: the one-tap connection package imports and ATAK connects; the
 connection stays up (pings answered); TAKgram reads the callsign and team from ATAK; a marker broadcast from
 ATAK reaches TAKgram. The emulator is not signed in to Telegram, so posting is checked below.
