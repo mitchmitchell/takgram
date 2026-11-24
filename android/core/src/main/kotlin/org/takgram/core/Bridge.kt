@@ -71,6 +71,18 @@ class Bridge(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, PinRef>?) = size > MAX_PINS
     }
     private val dedup = Dedup()
+    private val objectUids = object : LinkedHashMap<String, Boolean>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?) = size > MAX_OBJECTS
+    }
+    private val contactUids = HashSet<String>()
+
+    /** True if this object reached ATAK from Telegram through this bridge, so it must not be posted back. */
+    @Synchronized
+    fun cameFromTelegram(uid: String): Boolean = objectUids.containsKey(uid) || uid in contactUids
+
+    /** True if this uid is a chat member as shown in ATAK, so a direct message to it belongs in the chat. */
+    @Synchronized
+    fun isTelegramContact(uid: String): Boolean = uid in contactUids
 
     @Synchronized
     fun identityOf(userId: Long): Identity? = identities[userId]
@@ -146,6 +158,7 @@ class Bridge(
         }
         if (!ev.stale.isAfter(now())) return
         if (!dedup.isNew(ev.uid, ev.time.toEpochMilli())) return
+        objectUids[ev.uid] = true
         sink.send(CotBuild.fromEvent(ev))
     }
 
@@ -184,6 +197,7 @@ class Bridge(
         val by = contact(m.sender).callsign
         val ref = PinRef("TGPIN-${m.chatId}-${m.messageId}", c.lat, c.lon, by)
         pins[m.messageId] = ref
+        objectUids[ref.uid] = true
         sink.send(CotBuild.marker(ref.uid, PIN_TYPE, "Pin ($by)", c.lat, c.lon, "Pin from $by via Telegram", PIN_STALE_S, now = now()))
     }
 
@@ -220,7 +234,8 @@ class Bridge(
     }
 
     /** The posted identity card if there is one; otherwise a Telegram-only contact such as "TG-Ann". */
-    private fun contact(s: TgSender): Identity = identities[s.userId] ?: telegramOnly(s)
+    private fun contact(s: TgSender): Identity =
+        (identities[s.userId] ?: telegramOnly(s)).also { if (!s.isSelf) contactUids.add(it.uid) }
 
     companion object {
         const val POSITION_STALE_S = 180L
@@ -231,6 +246,7 @@ class Bridge(
         const val PIN_TYPE = "a-u-G"
         const val MAX_TEXT_CHARS = 16 * 1024
         private const val MAX_PINS = 200
+        private const val MAX_OBJECTS = 2000
 
         fun telegramOnly(s: TgSender): Identity {
             val name = CotParse.clean(s.displayName, 40).ifEmpty { s.userId.toString() }

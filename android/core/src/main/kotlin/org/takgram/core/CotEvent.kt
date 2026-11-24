@@ -22,7 +22,16 @@ data class CotEvent(
     val colorArgb: Int? = null,
     val iconsetPath: String = "",
     val isTakClient: Boolean = false,
+    /** Set for GeoChat (`b-t-f`) events. */
+    val chat: CotChat? = null,
+    /** Callsigns this event is addressed to (`marti/dest`); empty means everyone. */
+    val destCallsigns: List<String> = emptyList(),
+    /** The uid of whoever created the object (`link relation="p-p"`), if stated. */
+    val creatorUid: String = "",
 )
+
+/** A GeoChat message. [toUid] is "All Chat Rooms" for the broadcast room, else the recipient's uid. */
+data class CotChat(val senderUid: String, val senderCallsign: String, val room: String, val toUid: String, val text: String)
 
 /** ATAK's team colours, as written in the `__group name` attribute. */
 object Teams {

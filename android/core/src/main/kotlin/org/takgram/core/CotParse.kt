@@ -22,6 +22,7 @@ object CotParse {
     const val MAX_NAME = 64
     const val MAX_REMARKS = 2000
     private const val MAX_ICON = 256
+    private const val MAX_DESTS = 50
     private val TOKEN = Regex("[A-Za-z0-9_.-]+")
 
     fun parse(data: ByteArray, now: Instant = Instant.now()): CotEvent {
@@ -63,6 +64,24 @@ object CotParse {
         val color = detail?.let { child(it, "color") }
         val icon = detail?.let { child(it, "usericon") }
         val remarks = detail?.let { child(it, "remarks") }?.textContent.orEmpty()
+        val remarksText = clean(remarks, MAX_REMARKS, multiline = true)
+        val links = detail?.let { children(it, "link") }.orEmpty()
+        val creator = links.firstOrNull { it.getAttribute("relation") == "p-p" }?.getAttribute("uid").orEmpty()
+        val dests = detail?.let { child(it, "marti") }?.let { children(it, "dest") }.orEmpty()
+            .map { clean(it.getAttribute("callsign"), MAX_NAME) }.filter { it.isNotEmpty() }.take(MAX_DESTS)
+        val chatEl = detail?.let { child(it, "__chat") }
+        val chat = if (type == "b-t-f" && chatEl != null) {
+            val grp = child(chatEl, "chatgrp")
+            val sender = grp?.getAttribute("uid0").orEmpty().ifEmpty { creator }
+            val to = chatEl.getAttribute("id").ifEmpty { grp?.getAttribute("uid1").orEmpty() }
+            CotChat(
+                senderUid = clean(sender, MAX_UID),
+                senderCallsign = clean(chatEl.getAttribute("senderCallsign"), MAX_NAME),
+                room = clean(chatEl.getAttribute("chatroom"), MAX_NAME),
+                toUid = clean(to, MAX_UID).ifEmpty { CotBuild.ALL_CHAT },
+                text = remarksText,
+            )
+        } else null
 
         return CotEvent(
             uid = uid,
@@ -75,7 +94,7 @@ object CotParse {
             hae = known(pt.getAttribute("hae")),
             ce = known(pt.getAttribute("ce")),
             callsign = clean(contact?.getAttribute("callsign").orEmpty(), MAX_NAME),
-            remarks = clean(remarks, MAX_REMARKS, multiline = true),
+            remarks = remarksText,
             team = group?.getAttribute("name").orEmpty().takeIf { Teams.valid(it) }.orEmpty(),
             role = clean(group?.getAttribute("role").orEmpty(), MAX_NAME),
             course = track?.getAttribute("course")?.toDoubleOrNull()?.takeIf { it in 0.0..360.0 },
@@ -86,6 +105,9 @@ object CotParse {
             iconsetPath = icon?.getAttribute("iconsetpath").orEmpty()
                 .takeIf { it.length <= MAX_ICON && it.none { ch -> ch < ' ' } && !it.contains("..") }.orEmpty(),
             isTakClient = detail?.let { child(it, "takv") } != null || group != null,
+            chat = chat,
+            destCallsigns = dests,
+            creatorUid = clean(creator, MAX_UID),
         )
     }
 
@@ -116,6 +138,16 @@ object CotParse {
             n = n.nextSibling
         }
         return null
+    }
+
+    private fun children(parent: Element, name: String): List<Element> {
+        val out = ArrayList<Element>()
+        var n = parent.firstChild
+        while (n != null) {
+            if (n is Element && n.tagName == name) out.add(n)
+            n = n.nextSibling
+        }
+        return out
     }
 
     private fun instant(s: String): Instant? = try {
