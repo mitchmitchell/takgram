@@ -26,6 +26,7 @@ sealed interface OutAction {
 class OutboundPolicy(
     private val cameFromTelegram: (uid: String) -> Boolean,
     private val isTelegramContact: (uid: String) -> Boolean,
+    private val isTelegramCallsign: (callsign: String) -> Boolean = { false },
 ) {
     /** The uid of the user's ATAK, learned from its first position report. */
     @Volatile var selfUid: String = ""
@@ -51,7 +52,9 @@ class OutboundPolicy(
 
         if (cameFromTelegram(ev.uid)) return OutAction.Ignore
         if (ev.creatorUid.isNotEmpty() && selfUid.isNotEmpty() && ev.creatorUid != selfUid) return OutAction.Ignore
-        if (ev.destCallsigns.isNotEmpty()) return OutAction.Ignore // sent to named contacts, not to everyone
+        // Sent to named contacts rather than broadcast: it belongs in the chat only if one of them
+        // is a chat member. Something sent privately to a Wi-Fi teammate stays private.
+        if (ev.destCallsigns.isNotEmpty() && ev.destCallsigns.none(isTelegramCallsign)) return OutAction.Ignore
 
         val postable = t.startsWith("a-") || t.startsWith("b-m-p") || t.startsWith("b-a-") || t == "b-r-f-h-c"
         return if (postable) OutAction.Card(ev) else OutAction.Ignore

@@ -98,7 +98,9 @@ class BridgeService : Service(), LocationListener {
         app.bridgeOn = true
         prefs.edit().putBoolean(PREF_BRIDGE, true).apply()
         handler.postDelayed(ticker, TICK_MS)
-        tg.note("bridge on: ${tg.chatTitle(tg.linkedChatId)} to ATAK")
+        app.takServer.start()
+        tg.note("bridge on: ${tg.chatTitle(tg.linkedChatId)} and ATAK")
+        tg.loadIdentityCards(tg.linkedChatId)
         app.postIdentity()
     }
 
@@ -181,6 +183,7 @@ class BridgeService : Service(), LocationListener {
     private fun stopEverything() {
         stopSharing(null)
         handler.removeCallbacks(ticker)
+        app.takServer.stop()
         app.bridgeOn = false
         prefs.edit().putBoolean(PREF_BRIDGE, false).apply()
         tg.note("bridge off")
@@ -191,6 +194,7 @@ class BridgeService : Service(), LocationListener {
     override fun onDestroy() {
         lm.removeUpdates(this)
         handler.removeCallbacks(ticker)
+        app.takServer.stop()
         app.bridgeOn = false
         super.onDestroy()
     }

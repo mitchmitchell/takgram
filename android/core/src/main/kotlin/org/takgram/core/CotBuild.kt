@@ -128,6 +128,9 @@ object CotBuild {
         return envelope(uid, "a-f-G-U-C", "m-g", now, now.plusSeconds(staleSeconds), lat, lon, null, ce, detail)
     }
 
+    /** The reply to a TAK client's `t-x-c-t` ping. Without it ATAK drops the connection. */
+    fun pong(now: Instant = Instant.now()): String = event("takPong", "t-x-c-t-r", "h-g-i-g-o", 0.0, 0.0, null, 20, "", now)
+
     /** Asks ATAK to remove the object with this uid from the map at once. */
     fun delete(uid: String, now: Instant = Instant.now()): String {
         val detail = "<link" + attr("uid", uid) + " relation=\"none\" type=\"none\"/><__forcedelete/>"

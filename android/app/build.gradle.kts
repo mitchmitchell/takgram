@@ -33,8 +33,8 @@ android {
         applicationId = "org.takgram.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.0.2-a1"
+        versionCode = 4
+        versionName = "0.0.3-a2"
         buildConfigField("int", "TG_API_ID", apiId)
         buildConfigField("String", "TG_API_HASH", "\"$apiHash\"")
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }

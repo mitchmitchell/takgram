@@ -134,6 +134,7 @@ class MainActivity : Activity() {
         heading(mainBox, "Bridge")
         button(mainBox, "Choose linked chat") { pickChat() }
         bridgeButton = button(mainBox, "") { toggleBridge() }
+        button(mainBox, "Connect ATAK to TAKgram (once)") { connectAtak() }
         shareButton = button(mainBox, "") { toggleSharing() }
 
         heading(mainBox, "Tests")
@@ -197,7 +198,8 @@ class MainActivity : Activity() {
             append(if (tg.testDc) "Telegram TEST servers\n" else "")
             append("Telegram: ").append(if (signedIn) "signed in" else signInText(auth)).append('\n')
             append("Linked chat: ").append(tg.chatTitle(tg.linkedChatId)).append('\n')
-            append("Bridge to ATAK: ").append(if (app.bridgeOn) "on" else "off").append('\n')
+            append("Bridge: ").append(if (app.bridgeOn) "on" else "off").append('\n')
+            append("ATAK connected: ").append(if (app.atakConnections > 0) "yes" else "no").append('\n')
             append("Sharing my position: ").append(if (sharing) "on" else "off").append('\n')
             append("Sharing with me: ").append(if (seen.isEmpty()) "nobody" else seen.joinToString())
         }
@@ -296,6 +298,18 @@ class MainActivity : Activity() {
             .show()
     }
 
+    private fun connectAtak() {
+        if (!app.bridgeOn) {
+            tg.note("turn the bridge on first, so ATAK finds TAKgram listening")
+            return
+        }
+        if (PackageProvider.sendToAtak(this)) {
+            tg.note("sent ATAK the connection package; ATAK should now list a TAKgram server")
+        } else {
+            tg.note("no TAK app accepted the connection package. Is ATAK installed?")
+        }
+    }
+
     private fun toggleBridge() {
         if (app.bridgeOn) {
             BridgeService.send(this, BridgeService.ACTION_STOP)
@@ -385,6 +399,7 @@ class MainActivity : Activity() {
             "on" -> BridgeService.send(this, BridgeService.ACTION_START)
             "off" -> BridgeService.send(this, BridgeService.ACTION_STOP)
         }
+        if (i.getBooleanExtra("connect_atak", false)) window.decorView.postDelayed({ connectAtak() }, 2500)
         when (i.getStringExtra("share")) {
             "on" -> toggleSharing()
             "off" -> BridgeService.send(this, BridgeService.ACTION_SHARE_OFF)

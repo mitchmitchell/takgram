@@ -3,11 +3,17 @@ package org.takgram.app
 import android.app.Application
 import android.content.Context
 import org.takgram.core.Bridge
+import org.takgram.core.Caption
+import org.takgram.core.ConnectionPackage
 import org.takgram.core.Cot1Codec
 import org.takgram.core.CotBuild
+import org.takgram.core.CotEvent
 import org.takgram.core.CotParse
+import org.takgram.core.Dedup
 import org.takgram.core.Identity
 import org.takgram.core.IdentityCard
+import org.takgram.core.OutAction
+import org.takgram.core.OutboundPolicy
 import org.takgram.core.Teams
 import java.util.Locale
 import java.util.concurrent.Executors
@@ -20,6 +26,16 @@ class TakgramApp : Application() {
 
     /** True while the bridge service runs. Messages are only passed to ATAK while it is on. */
     @Volatile var bridgeOn = false
+
+    /** How many ATAK connections the local server has. */
+    @Volatile var atakConnections = 0
+        private set
+
+    lateinit var takServer: TakServer
+        private set
+    private lateinit var outbox: Outbox
+    private lateinit var policy: OutboundPolicy
+    private val postedVersions = Dedup()
 
     private val io = Executors.newSingleThreadExecutor()
     private val prefs by lazy { getSharedPreferences("takgram", Context.MODE_PRIVATE) }
@@ -40,6 +56,43 @@ class TakgramApp : Application() {
             log = { tg.note(it) },
         )
         tg.onLinkedMessage = { m -> if (bridgeOn) bridge.onMessage(m) }
+        outbox = Outbox(tg, prefs)
+        policy = OutboundPolicy(bridge::cameFromTelegram, bridge::isTelegramContact, bridge::isTelegramCallsign)
+        takServer = TakServer(
+            port = ConnectionPackage.PORT,
+            onEvent = ::onAtakEvent,
+            onClients = { n ->
+                if (n != atakConnections) tg.note(if (n > 0) "ATAK connected to TAKgram" else "ATAK disconnected from TAKgram")
+                atakConnections = n
+            },
+            log = { tg.note(it) },
+        )
+    }
+
+    /** An event the user's own ATAK sent to the local server. */
+    private fun onAtakEvent(ev: CotEvent) {
+        if (!bridgeOn) return
+        val chat = tg.linkedChatId
+        val canPost = chat != 0L && tg.signedIn
+        when (val action = policy.decide(ev)) {
+            is OutAction.SelfSeen -> if (action.identity != identity) {
+                // ATAK is the authority on the user's uid, callsign and team.
+                identity = action.identity
+                tg.note("identity from ATAK: ${action.identity.callsign} (${action.identity.team})")
+                postIdentity()
+            }
+            is OutAction.Card -> if (postedVersions.isNew(ev.uid, ev.time.toEpochMilli())) {
+                val title = Caption.lines(ev).first()
+                if (canPost) {
+                    outbox.card(chat, ev)
+                    tg.note("posting to the chat: $title")
+                } else if (BuildConfig.DEBUG) tg.note("would post (no chat linked): $title")
+            }
+            is OutAction.ChatText ->
+                if (canPost) outbox.text(chat, action.text)
+                else if (BuildConfig.DEBUG) tg.note("would post chat (no chat linked): ${action.text.take(80)}")
+            OutAction.Ignore -> Unit
+        }
     }
 
     // ---- the user's TAK identity -------------------------------------------------------------------

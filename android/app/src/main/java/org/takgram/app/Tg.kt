@@ -161,6 +161,20 @@ class Tg(private val ctx: Context) {
         }
     }
 
+    /**
+     * Re-reads identity cards already posted in the chat, oldest first, so teammates who posted
+     * theirs before this app started are shown under their TAK identity.
+     */
+    fun loadIdentityCards(chatId: Long) {
+        if (chatId == 0L || !signedIn) return
+        val search = TdApi.SearchChatMessages(chatId, null, IDENTITY_TAG, null, 0, 0, 100, TdApi.SearchMessagesFilterEmpty())
+        client.send(search) { r ->
+            if (r is TdApi.FoundChatMessages) {
+                for (m in r.messages.reversed()) if (isLinked(m.chatId)) deliver(m, edited = true)
+            }
+        }
+    }
+
     // ---- sending ---------------------------------------------------------------------------------
 
     /**
@@ -361,6 +375,7 @@ class Tg(private val ctx: Context) {
         const val TAG = "TAKgram"
         const val QR_TAG = "TAKgramQR"
         const val FOREVER = 0x7FFFFFFF
+        private const val IDENTITY_TAG = "#takid1"
 
         /** Placeholder id while a send is in flight; not a multiple of 2^20, so it reads as unconfirmed. */
         private const val PENDING_ID = 1L

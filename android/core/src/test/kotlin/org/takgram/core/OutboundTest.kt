@@ -74,7 +74,11 @@ class OutboundTest {
         assertEquals(OutAction.Ignore, p.decide(ev(marker(uid = "m-tg"))))
         assertEquals(OutAction.Ignore, p.decide(ev(marker(creator = "ANDROID-someone-else"))))
         val directed = marker(extra = "<marti><dest callsign=\"BRAVO-6\"/></marti>")
-        assertEquals("sent to one named contact, not to everyone", OutAction.Ignore, p.decide(ev(directed)))
+        assertEquals("sent privately to a Wi-Fi teammate", OutAction.Ignore, p.decide(ev(directed)))
+        val q = OutboundPolicy({ false }, { false }, { it == "TG-Ann" }).apply { decide(ev(atakSelf)) }
+        assertEquals(OutAction.Ignore, q.decide(ev(directed)))
+        val toAnn = marker(extra = "<marti><dest callsign=\"BRAVO-6\"/><dest callsign=\"TG-Ann\"/></marti>")
+        assertTrue("sent to a chat member", q.decide(ev(toAnn)) is OutAction.Card)
     }
 
     @Test
@@ -98,6 +102,8 @@ class OutboundTest {
         assertTrue(bridge.cameFromTelegram("m-tg"))
         assertTrue(bridge.cameFromTelegram("TGPIN--5-2"))
         assertTrue(bridge.isTelegramContact("TG-1001"))
+        assertTrue(bridge.isTelegramCallsign("TG-Ann"))
+        assertFalse(bridge.isTelegramCallsign("BRAVO-6"))
         assertFalse(bridge.cameFromTelegram("m-local"))
         assertFalse(bridge.isTelegramContact("ANDROID-wifi-peer"))
     }

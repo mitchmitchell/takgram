@@ -37,5 +37,12 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Relays the user's chosen Telegram chat to the ATAK mapping app on the same phone" />
         </service>
+
+        <!-- Serves one file, the ATAK connection data package, under a one-time read grant. -->
+        <provider
+            android:name=".PackageProvider"
+            android:authorities="org.takgram.app.files"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>

@@ -75,6 +75,11 @@ class Bridge(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?) = size > MAX_OBJECTS
     }
     private val contactUids = HashSet<String>()
+    private val contactCallsigns = HashSet<String>()
+
+    /** True if a chat member is shown in ATAK under this callsign. */
+    @Synchronized
+    fun isTelegramCallsign(callsign: String): Boolean = callsign in contactCallsigns
 
     /** True if this object reached ATAK from Telegram through this bridge, so it must not be posted back. */
     @Synchronized
@@ -235,7 +240,12 @@ class Bridge(
 
     /** The posted identity card if there is one; otherwise a Telegram-only contact such as "TG-Ann". */
     private fun contact(s: TgSender): Identity =
-        (identities[s.userId] ?: telegramOnly(s)).also { if (!s.isSelf) contactUids.add(it.uid) }
+        (identities[s.userId] ?: telegramOnly(s)).also {
+            if (!s.isSelf) {
+                contactUids.add(it.uid)
+                contactCallsigns.add(it.callsign)
+            }
+        }
 
     companion object {
         const val POSITION_STALE_S = 180L
